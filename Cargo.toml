@@ -1,0 +1,136 @@
+[workspace]
+members = [
+    "crates/core",
+    "crates/cli",
+    "crates/serve",
+    "crates/infra",
+    "crates/vscode",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["XZe Contributors"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/xbcsmith/xze"
+homepage = "https://github.com/xbcsmith/xze"
+documentation = "https://docs.rs/xze"
+description = "XZe Pipeline Documentation Tool - AI-powered documentation generation using Diátaxis framework"
+keywords = ["documentation", "ai", "pipeline", "analysis", "diátaxis"]
+categories = ["command-line-utilities", "development-tools", "text-processing"]
+readme = "README.md"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+# HTTP client and server
+reqwest = { version = "0.11", features = ["json", "stream"] }
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["fs", "trace", "cors", "limit", "compression-full"] }
+
+# Git operations
+git2 = "0.18"
+
+# File system operations
+walkdir = "2.4"
+tempfile = "3.8"
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Date and time
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Configuration
+config = "0.14"
+
+# Template engine
+handlebars = "4.5"
+
+# URL parsing
+url = "2.4"
+
+# Pattern matching
+glob = "0.3"
+
+# Collections
+indexmap = "2.1"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# Language parsing
+tree-sitter = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-python = "0.20"
+tree-sitter-go = "0.20"
+tree-sitter-java = "0.20"
+
+[package]
+name = "xze"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+description.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
+
+[dependencies]
+xze-core = { path = "crates/core" }
+xze-cli = { path = "crates/cli" }
+xze-serve = { path = "crates/serve" }
+
+# CLI support
+clap = { workspace = true }
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+
+[[bin]]
+name = "xze"
+path = "src/main.rs"
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = { workspace = true }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+debug = true
