@@ -915,6 +915,7 @@ impl CodeParser for GenericParser {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::repository::Visibility;
 
     #[test]
     fn test_rust_parser_function_params() {

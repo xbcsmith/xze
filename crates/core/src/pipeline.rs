@@ -523,7 +523,7 @@ impl PipelineExecutor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::XzeConfig;
+    use crate::{config::XzeConfig, types::ProgrammingLanguage};
     use tempfile::TempDir;
 
     fn create_test_config() -> XzeConfig {
