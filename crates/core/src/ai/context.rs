@@ -172,7 +172,7 @@ impl ContextManager {
     }
 
     /// Extract a section from text
-    fn extract_section<'a>(&self, text: &'a str, section: &str) -> Option<String> {
+    fn extract_section(&self, text: &str, section: &str) -> Option<String> {
         let patterns = [
             format!("# {}", section),
             format!("## {}", section),

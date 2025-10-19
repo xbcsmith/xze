@@ -21,10 +21,15 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
 pub mod credentials;
+pub mod gitlab;
 pub mod pr;
 
 pub use credentials::{credentials_from_env, CredentialStore};
-pub use pr::{GitHubPrManager, PullRequest, PullRequestManager};
+pub use gitlab::GitLabPrManager;
+pub use pr::{
+    Author, CreatePrRequest, GitHubPrManager, GitPlatform, MergeMethod, PrState, PrTemplateBuilder,
+    PrTemplateData, PrUpdate, PullRequest, PullRequestManager, StatusCheck,
+};
 
 // Type alias for convenience
 pub type PrManager = GitHubPrManager;
@@ -269,18 +274,14 @@ impl GitOperations {
     ///
     /// * `repo` - Repository reference
     /// * `local_only` - If true, only list local branches
-    pub fn list_branches(&self, repo: &Repository, local_only: bool) -> Result<Vec<BranchInfo>> {
+    pub fn list_branches(&self, repo: &Repository, _local_only: bool) -> Result<Vec<BranchInfo>> {
         let mut branches = Vec::new();
         let current_branch = repo
             .head()
             .ok()
             .and_then(|h| h.shorthand().map(|s| s.to_string()));
 
-        let branch_type = if local_only {
-            BranchType::Local
-        } else {
-            BranchType::Local
-        };
+        let branch_type = BranchType::Local;
 
         for branch_result in repo.branches(Some(branch_type)).map_err(XzeError::Git)? {
             let (branch, _) = branch_result.map_err(XzeError::Git)?;
@@ -620,8 +621,8 @@ impl GitOperations {
         for (i, _delta) in diff.deltas().enumerate() {
             if i < changes.len() {
                 // Approximate stats distribution
-                changes[i].additions = (total_insertions / changes.len().max(1)) as usize;
-                changes[i].deletions = (total_deletions / changes.len().max(1)) as usize;
+                changes[i].additions = total_insertions / changes.len().max(1);
+                changes[i].deletions = total_deletions / changes.len().max(1);
             }
         }
 

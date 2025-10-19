@@ -14,17 +14,22 @@ pub fn create_test_repo(path: &Path) -> Result<git2::Repository> {
     config.set_str("user.email", "test@example.com")?;
 
     // Create initial commit with README
-    fs::write(path.join("README.md"), "# Test Repository\n\nInitial content\n")?;
+    fs::write(
+        path.join("README.md"),
+        "# Test Repository\n\nInitial content\n",
+    )?;
 
     let mut index = repo.index()?;
     index.add_path(Path::new("README.md"))?;
     index.write()?;
 
     let tree_id = index.write_tree()?;
-    let tree = repo.find_tree(tree_id)?;
     let sig = repo.signature()?;
 
-    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])?;
+    {
+        let tree = repo.find_tree(tree_id)?;
+        repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])?;
+    }
 
     Ok(repo)
 }
@@ -42,7 +47,10 @@ pub fn create_test_files(repo_path: &Path, files: &[(&str, &str)]) -> Result<()>
 }
 
 /// Create a test repository with multiple commits
-pub fn create_repo_with_history(path: &Path, commits: &[(&str, &[(&str, &str)])]) -> Result<git2::Repository> {
+pub fn create_repo_with_history(
+    path: &Path,
+    commits: &[(&str, &[(&str, &str)])],
+) -> Result<git2::Repository> {
     let repo = create_test_repo(path)?;
 
     for (message, files) in commits {
@@ -109,10 +117,7 @@ mod tests {
 
         create_test_files(
             temp_dir.path(),
-            &[
-                ("file1.txt", "content1"),
-                ("dir/file2.txt", "content2"),
-            ],
+            &[("file1.txt", "content1"), ("dir/file2.txt", "content2")],
         )
         .unwrap();
 

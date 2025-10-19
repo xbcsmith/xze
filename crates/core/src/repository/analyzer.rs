@@ -274,7 +274,6 @@ impl RustAnalyzer {
     fn extract_full_signature(&self, content: &str, start_line: usize) -> String {
         let lines: Vec<&str> = content.lines().collect();
         let mut signature = String::new();
-        let mut brace_count = 0;
         let mut paren_count = 0;
 
         for line in lines.iter().skip(start_line) {
@@ -509,7 +508,7 @@ impl RustAnalyzer {
         let mut brace_count = 0;
         let mut current_doc = None;
 
-        for (idx, line) in lines.iter().enumerate().skip(start_line) {
+        for (_idx, line) in lines.iter().enumerate().skip(start_line) {
             let trimmed = line.trim();
 
             // Track documentation comments

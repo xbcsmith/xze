@@ -1,0 +1,116 @@
+# {{title}}
+
+## Description
+
+{{#if description}}
+{{description}}
+{{else}}
+This pull request introduces changes from `{{source_branch}}` to `{{target_branch}}`.
+{{/if}}
+
+## Changes Overview
+
+{{#if changed_files}}
+### Modified Files
+
+{{#each changed_files}}
+- `{{this}}`
+{{/each}}
+
+### Statistics
+
+- **Lines Added**: {{additions}}
+- **Lines Deleted**: {{deletions}}
+- **Total Changes**: {{total_changes}}
+- **Files Changed**: {{file_count}}
+{{else}}
+No file changes detected.
+{{/if}}
+
+## Commits
+
+{{#if commits}}
+{{#each commits}}
+- {{this}}
+{{/each}}
+{{else}}
+No commits found.
+{{/if}}
+
+## Related Issues
+
+{{#if jira_issue}}
+**JIRA**: [{{jira_issue}}]({{jira_url}})
+{{/if}}
+
+{{#if github_issue}}
+**GitHub Issue**: #{{github_issue}}
+{{/if}}
+
+{{#if related_issues}}
+### Related Issues
+{{#each related_issues}}
+- {{this}}
+{{/each}}
+{{/if}}
+
+## Testing
+
+{{#if tests_added}}
+### Tests Added
+{{#each tests_added}}
+- {{this}}
+{{/each}}
+{{else}}
+- [ ] Unit tests added/updated
+- [ ] Integration tests added/updated
+- [ ] Manual testing completed
+{{/if}}
+
+## Checklist
+
+- [ ] Code follows project style guidelines
+- [ ] Self-review completed
+- [ ] Comments added for complex code
+- [ ] Documentation updated
+- [ ] No new warnings generated
+- [ ] Tests pass locally
+- [ ] Dependent changes merged
+
+## Additional Context
+
+{{#if breaking_changes}}
+### Breaking Changes
+{{breaking_changes}}
+{{/if}}
+
+{{#if migration_notes}}
+### Migration Notes
+{{migration_notes}}
+{{/if}}
+
+{{#each context}}
+**{{@key}}**: {{this}}
+{{/each}}
+
+## Screenshots/Logs
+
+{{#if screenshots}}
+{{screenshots}}
+{{/if}}
+
+{{#if logs}}
+```
+{{logs}}
+```
+{{/if}}
+
+---
+
+**Branch**: `{{source_branch}}` → `{{target_branch}}`
+{{#if author}}
+**Author**: @{{author}}
+{{/if}}
+{{#if reviewers}}
+**Reviewers**: {{#each reviewers}}@{{this}} {{/each}}
+{{/if}}

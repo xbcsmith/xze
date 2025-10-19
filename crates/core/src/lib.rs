@@ -5,6 +5,7 @@
 //! generating documentation, and managing the documentation workflow.
 
 pub mod ai;
+pub mod change_detector;
 pub mod config;
 pub mod documentation;
 pub mod error;
@@ -12,14 +13,20 @@ pub mod git;
 pub mod pipeline;
 pub mod repository;
 pub mod types;
+pub mod watcher;
 
 // Re-export commonly used types
+pub use change_detector::{
+    ChangeDetector, ChangeDetectorConfig, ChangeSignificance, DocumentationImpact,
+    RepositoryChanges, SignificanceLevel, WebhookEvent,
+};
 pub use config::XzeConfig;
 pub use error::{Result, XzeError};
 pub use repository::{CodeStructure, Repository, RepositoryManager};
 pub use types::{
     DiátaxisCategory, JobId, JobStatus, OperationMode, ProgrammingLanguage, RepositoryId,
 };
+pub use watcher::{RepositoryWatcher, WatchedRepository, WatcherConfig, WatcherStats};
 
 /// Initialize logging with JSON formatting
 pub fn init_logging() -> Result<()> {
