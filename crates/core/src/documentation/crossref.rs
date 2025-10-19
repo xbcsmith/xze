@@ -183,7 +183,7 @@ impl CrossReferenceGenerator {
         for cref in references {
             by_relationship
                 .entry(cref.relationship)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(cref);
         }
 

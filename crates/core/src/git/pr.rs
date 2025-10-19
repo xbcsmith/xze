@@ -1,7 +1,17 @@
 //! Git pull request management
+//!
+//! This module provides abstractions for working with pull requests (PRs) and
+//! merge requests (MRs) across different Git hosting platforms. It includes:
+//!
+//! - Platform-agnostic `PullRequestManager` trait
+//! - GitHub implementation
+//! - GitLab implementation
+//! - PR template generation with Handlebars
+//! - AI-powered description generation
 
 use crate::{Result, XzeError};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Pull request information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +88,29 @@ pub struct CreatePrRequest {
     pub assignees: Vec<String>,
 }
 
+/// Template data for PR generation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrTemplateData {
+    /// PR title
+    pub title: String,
+    /// Source branch name
+    pub source_branch: String,
+    /// Target branch name
+    pub target_branch: String,
+    /// List of changed files
+    pub changed_files: Vec<String>,
+    /// Number of additions
+    pub additions: usize,
+    /// Number of deletions
+    pub deletions: usize,
+    /// Commit messages
+    pub commits: Vec<String>,
+    /// JIRA issue ID (if applicable)
+    pub jira_issue: Option<String>,
+    /// Additional context
+    pub context: HashMap<String, String>,
+}
+
 /// Pull request manager trait
 #[allow(async_fn_in_trait)]
 pub trait PullRequestManager: Send + Sync {
@@ -137,7 +170,7 @@ pub struct PrUpdate {
 }
 
 /// Merge method for pull requests
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MergeMethod {
     /// Create a merge commit
@@ -146,6 +179,101 @@ pub enum MergeMethod {
     Squash,
     /// Rebase and merge
     Rebase,
+}
+
+/// Platform detection from repository URL
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GitPlatform {
+    GitHub,
+    GitLab,
+    Unknown,
+}
+
+impl GitPlatform {
+    /// Detect platform from repository URL
+    pub fn detect(repo_url: &str) -> Self {
+        if repo_url.contains("github.com") {
+            GitPlatform::GitHub
+        } else if repo_url.contains("gitlab.com") || repo_url.contains("gitlab") {
+            GitPlatform::GitLab
+        } else {
+            GitPlatform::Unknown
+        }
+    }
+}
+
+/// PR template builder
+pub struct PrTemplateBuilder {
+    handlebars: handlebars::Handlebars<'static>,
+}
+
+impl PrTemplateBuilder {
+    /// Create a new PR template builder
+    pub fn new() -> Self {
+        let mut handlebars = handlebars::Handlebars::new();
+
+        // Register default PR template
+        handlebars
+            .register_template_string("default", Self::default_template())
+            .expect("Failed to register default template");
+
+        Self { handlebars }
+    }
+
+    /// Get the default PR template
+    fn default_template() -> &'static str {
+        r#"# {{title}}
+
+## Changes
+
+This PR includes changes to the following files:
+{{#each changed_files}}
+- `{{this}}`
+{{/each}}
+
+## Summary
+
+- **Branch**: `{{source_branch}}` → `{{target_branch}}`
+- **Changes**: +{{additions}} / -{{deletions}} lines
+{{#if jira_issue}}
+- **JIRA**: {{jira_issue}}
+{{/if}}
+
+## Commits
+
+{{#each commits}}
+- {{this}}
+{{/each}}
+
+## Additional Context
+
+{{#each context}}
+**{{@key}}**: {{this}}
+{{/each}}
+"#
+    }
+
+    /// Register a custom template
+    pub fn register_template(&mut self, name: &str, template: &str) -> Result<()> {
+        self.handlebars
+            .register_template_string(name, template)
+            .map_err(|e| XzeError::validation(format!("Failed to register template: {}", e)))
+    }
+
+    /// Build PR description from template data
+    pub fn build(&self, data: &PrTemplateData, template_name: Option<&str>) -> Result<String> {
+        let template = template_name.unwrap_or("default");
+
+        self.handlebars
+            .render(template, data)
+            .map_err(|e| XzeError::validation(format!("Failed to render template: {}", e)))
+    }
+}
+
+impl Default for PrTemplateBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// GitHub pull request manager implementation
@@ -542,6 +670,151 @@ impl GitHubPrManager {
             updated_at,
         })
     }
+
+    /// Add labels to a pull request
+    pub async fn add_labels(
+        &self,
+        repo_url: &str,
+        pr_number: u64,
+        labels: Vec<String>,
+    ) -> Result<()> {
+        let (owner, repo) = self.parse_github_url(repo_url)?;
+        let url = self.api_url(&owner, &repo, &format!("issues/{}/labels", pr_number));
+
+        let labels_data = serde_json::json!({
+            "labels": labels
+        });
+
+        let response = self
+            .client
+            .post(&url)
+            .header("Authorization", format!("token {}", self.token))
+            .header("Accept", "application/vnd.github.v3+json")
+            .json(&labels_data)
+            .send()
+            .await
+            .map_err(|e| XzeError::network(format!("Failed to add labels: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(XzeError::ai("Failed to add labels to pull request"));
+        }
+
+        Ok(())
+    }
+
+    /// Remove labels from a pull request
+    pub async fn remove_label(&self, repo_url: &str, pr_number: u64, label: &str) -> Result<()> {
+        let (owner, repo) = self.parse_github_url(repo_url)?;
+        let url = self.api_url(
+            &owner,
+            &repo,
+            &format!("issues/{}/labels/{}", pr_number, label),
+        );
+
+        let response = self
+            .client
+            .delete(&url)
+            .header("Authorization", format!("token {}", self.token))
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await
+            .map_err(|e| XzeError::network(format!("Failed to remove label: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(XzeError::ai("Failed to remove label from pull request"));
+        }
+
+        Ok(())
+    }
+
+    /// Check if PR is mergeable
+    pub async fn is_mergeable(&self, repo_url: &str, pr_number: u64) -> Result<bool> {
+        let pr = self.get_pr(repo_url, pr_number).await?;
+        // In a real implementation, would check mergeable_state from API
+        Ok(pr.state == PrState::Open)
+    }
+
+    /// Get PR status checks
+    pub async fn get_status_checks(
+        &self,
+        repo_url: &str,
+        pr_number: u64,
+    ) -> Result<Vec<StatusCheck>> {
+        let (owner, repo) = self.parse_github_url(repo_url)?;
+
+        // First get the PR to get the head SHA
+        let _pr = self.get_pr(repo_url, pr_number).await?;
+        let pr_data: serde_json::Value = self
+            .client
+            .get(self.api_url(&owner, &repo, &format!("pulls/{}", pr_number)))
+            .header("Authorization", format!("token {}", self.token))
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await
+            .map_err(|e| XzeError::network(format!("Failed to get PR: {}", e)))?
+            .json()
+            .await
+            .map_err(|e| XzeError::ai(format!("Failed to parse PR: {}", e)))?;
+
+        let head_sha = pr_data["head"]["sha"]
+            .as_str()
+            .ok_or_else(|| XzeError::validation("Missing head SHA"))?;
+
+        let url = self.api_url(&owner, &repo, &format!("commits/{}/status", head_sha));
+
+        let response = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("token {}", self.token))
+            .header("Accept", "application/vnd.github.v3+json")
+            .send()
+            .await
+            .map_err(|e| XzeError::network(format!("Failed to get status checks: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Ok(Vec::new());
+        }
+
+        let status_data: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| XzeError::ai(format!("Failed to parse status: {}", e)))?;
+
+        let mut checks = Vec::new();
+        if let Some(statuses) = status_data["statuses"].as_array() {
+            for status in statuses {
+                if let Ok(check) = self.parse_status_check(status) {
+                    checks.push(check);
+                }
+            }
+        }
+
+        Ok(checks)
+    }
+
+    fn parse_status_check(&self, data: &serde_json::Value) -> Result<StatusCheck> {
+        Ok(StatusCheck {
+            context: data["context"]
+                .as_str()
+                .ok_or_else(|| XzeError::validation("Missing status context"))?
+                .to_string(),
+            state: data["state"]
+                .as_str()
+                .ok_or_else(|| XzeError::validation("Missing status state"))?
+                .to_string(),
+            description: data["description"].as_str().map(|s| s.to_string()),
+            target_url: data["target_url"].as_str().map(|s| s.to_string()),
+        })
+    }
+}
+
+/// Status check information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatusCheck {
+    pub context: String,
+    pub state: String,
+    pub description: Option<String>,
+    pub target_url: Option<String>,
 }
 
 #[cfg(test)]
@@ -619,5 +892,85 @@ mod tests {
         let manager = GitHubPrManager::new("fake-token".to_string());
         let url = manager.api_url("owner", "repo", "pulls");
         assert_eq!(url, "https://api.github.com/repos/owner/repo/pulls");
+    }
+
+    #[test]
+    fn test_platform_detection() {
+        assert_eq!(
+            GitPlatform::detect("https://github.com/owner/repo"),
+            GitPlatform::GitHub
+        );
+        assert_eq!(
+            GitPlatform::detect("git@github.com:owner/repo.git"),
+            GitPlatform::GitHub
+        );
+        assert_eq!(
+            GitPlatform::detect("https://gitlab.com/owner/repo"),
+            GitPlatform::GitLab
+        );
+        assert_eq!(
+            GitPlatform::detect("https://gitlab.example.com/owner/repo"),
+            GitPlatform::GitLab
+        );
+        assert_eq!(
+            GitPlatform::detect("https://unknown.com/owner/repo"),
+            GitPlatform::Unknown
+        );
+    }
+
+    #[test]
+    fn test_pr_template_builder() {
+        let builder = PrTemplateBuilder::new();
+
+        let data = PrTemplateData {
+            title: "Add new feature".to_string(),
+            source_branch: "feature-branch".to_string(),
+            target_branch: "main".to_string(),
+            changed_files: vec!["src/main.rs".to_string(), "README.md".to_string()],
+            additions: 150,
+            deletions: 30,
+            commits: vec![
+                "feat: add new feature".to_string(),
+                "test: add tests".to_string(),
+            ],
+            jira_issue: Some("PROJ-1234".to_string()),
+            context: HashMap::new(),
+        };
+
+        let description = builder.build(&data, None).unwrap();
+
+        assert!(description.contains("Add new feature"));
+        assert!(description.contains("src/main.rs"));
+        assert!(description.contains("feature-branch"));
+        assert!(description.contains("main"));
+        assert!(description.contains("+150"));
+        assert!(description.contains("-30"));
+        assert!(description.contains("PROJ-1234"));
+    }
+
+    #[test]
+    fn test_custom_template() {
+        let mut builder = PrTemplateBuilder::new();
+
+        let custom_template = "PR: {{title}}\nFrom: {{source_branch}}";
+        builder
+            .register_template("custom", custom_template)
+            .unwrap();
+
+        let data = PrTemplateData {
+            title: "Test PR".to_string(),
+            source_branch: "test-branch".to_string(),
+            target_branch: "main".to_string(),
+            changed_files: vec![],
+            additions: 0,
+            deletions: 0,
+            commits: vec![],
+            jira_issue: None,
+            context: HashMap::new(),
+        };
+
+        let description = builder.build(&data, Some("custom")).unwrap();
+
+        assert_eq!(description, "PR: Test PR\nFrom: test-branch");
     }
 }

@@ -226,6 +226,7 @@ impl RustParser {
         result
     }
 
+    #[allow(dead_code)]
     fn parse_rust_return_type(&self, signature: &str) -> Option<String> {
         // Find return type after ->
         if let Some(arrow_pos) = signature.find("->") {
@@ -326,6 +327,7 @@ impl RustParser {
         Ok(fields)
     }
 
+    #[allow(dead_code)]
     fn parse_rust_enum_variants(&self, content: &str, enum_name: &str) -> Result<Vec<Field>> {
         let lines: Vec<&str> = content.lines().collect();
         let mut variants = Vec::new();
