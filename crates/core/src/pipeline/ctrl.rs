@@ -49,7 +49,7 @@ impl PipelineController {
         // Execute job in background
         let service = self.service.clone();
         let state = self.state.clone();
-        
+
         tokio::spawn(async move {
             match service.execute_job(job_id).await {
                 Ok(_) => {
@@ -104,7 +104,7 @@ mod tests {
 
     fn create_test_controller() -> PipelineController {
         let temp = tempdir().unwrap();
-        
+
         let repo_manager = RepositoryManager::new(temp.path()).unwrap();
         let ai_service = Arc::new(AIAnalysisService::new(
             "http://localhost:11434".to_string(),

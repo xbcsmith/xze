@@ -1,0 +1,162 @@
+# Project Summary
+
+{{#if project_name}}
+## {{project_name}}
+{{/if}}
+
+{{#if project_description}}
+{{project_description}}
+{{/if}}
+
+---
+
+## Quick Stats
+
+- **Modules:** {{modules.length}}
+- **Functions:** {{functions.length}} ({{public_functions}} public)
+- **Types:** {{types.length}}
+- **Config Files:** {{configs.length}}
+- **Total Items:** {{total_items}}
+
+{{#if language}}
+- **Primary Language:** {{language}}
+{{/if}}
+
+---
+
+## What This Project Does
+
+{{#if description}}
+{{description}}
+{{else}}
+This project provides functionality through {{public_functions}} public functions organized across {{modules.length}} modules.
+{{/if}}
+
+---
+
+## Key Features
+
+{{#if features}}
+{{#each features}}
+- {{this}}
+{{/each}}
+{{else}}
+Based on the code structure, this project includes:
+
+{{#if (gt modules.length 0)}}
+- Modular architecture with {{modules.length}} distinct modules
+{{/if}}
+{{#if (gt types.length 0)}}
+- {{types.length}} custom type definitions for domain modeling
+{{/if}}
+{{#if (gt public_functions 10)}}
+- Comprehensive API with {{public_functions}} public functions
+{{/if}}
+{{#if (gt configs.length 0)}}
+- Configurable through {{configs.length}} configuration files
+{{/if}}
+{{/if}}
+
+---
+
+## Main Components
+
+{{#if modules}}
+### Modules
+
+{{#each modules}}
+- **{{name}}**{{#if documentation}} - {{documentation}}{{/if}}
+{{/each}}
+{{/if}}
+
+{{#if key_types}}
+### Key Types
+
+{{#each key_types}}
+- **{{kind}} {{name}}**{{#if documentation}} - {{documentation}}{{/if}}
+{{/each}}
+{{/if}}
+
+---
+
+## Technologies & Frameworks
+
+{{#if technologies}}
+{{#each technologies}}
+- {{this}}
+{{/each}}
+{{else}}
+{{#if language}}
+- Primary implementation in {{language}}
+{{/if}}
+{{#if (gt configs.length 0)}}
+- Configuration management with {{#each configs}}{{format}}{{#unless @last}}, {{/unless}}{{/each}}
+{{/if}}
+{{/if}}
+
+---
+
+## Target Use Cases
+
+{{#if use_cases}}
+{{#each use_cases}}
+- {{this}}
+{{/each}}
+{{else}}
+This project is designed for:
+
+- Developers needing {{#if primary_functionality}}{{primary_functionality}}{{else}}the functionality provided by this codebase{{/if}}
+- Teams requiring {{#if (gt modules.length 5)}}a modular, scalable solution{{else}}a focused, specialized tool{{/if}}
+- Applications that benefit from {{#if (gt types.length 10)}}strong type safety{{else}}straightforward APIs{{/if}}
+{{/if}}
+
+---
+
+## Code Quality Assessment
+
+{{#if quality_metrics}}
+### Metrics
+
+{{#each quality_metrics}}
+- **{{name}}:** {{value}}
+{{/each}}
+{{/if}}
+
+### Overall Assessment
+
+{{#if quality_assessment}}
+{{quality_assessment}}
+{{else}}
+- **API Design:** {{#if (gt public_functions 0)}}{{public_functions}} well-defined public functions{{else}}Limited public API{{/if}}
+- **Organization:** {{#if (gt modules.length 3)}}Well-organized into modules{{else if (gt modules.length 0)}}Basic modular structure{{else}}Monolithic structure{{/if}}
+- **Type Safety:** {{#if (gt types.length 10)}}Strong type system{{else if (gt types.length 0)}}Adequate type definitions{{else}}Minimal type modeling{{/if}}
+- **Documentation:** {{#if documentation_percentage}}{{documentation_percentage}}% coverage{{else}}Needs assessment{{/if}}
+{{/if}}
+
+---
+
+## Getting Started
+
+{{#if quick_start}}
+{{quick_start}}
+{{else}}
+To use this project:
+
+1. Review the API reference for available functions
+2. Check configuration files for customization options
+3. Explore tutorials for hands-on learning
+4. Consult how-to guides for specific tasks
+{{/if}}
+
+---
+
+## Documentation
+
+- **Tutorials:** Learning-oriented guides for getting started
+- **How-To Guides:** Task-oriented instructions for specific goals
+- **Reference:** Detailed API documentation for all functions and types
+- **Explanations:** Conceptual discussion of architecture and design
+
+---
+
+*This summary was automatically generated from the codebase structure. For detailed information, refer to the comprehensive documentation sections.*

@@ -15,7 +15,7 @@ XZe is a tool written in rust that uses open source models from ollama to analyz
 ### Analyze repositories source code, configuration, and existing documentation
 
 - Use models from ollama to analyze the contents of a services repository
-- Use models from ollama to evaluate the Documentation in the pipeline-documentation repository 
+- Use models from ollama to evaluate the Documentation in the pipeline-documentation repository
 - Use models from ollama to update the documentation
 
 ### Create Documentation

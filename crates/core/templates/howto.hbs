@@ -1,0 +1,296 @@
+# How-To: {{task}}
+
+## Goal
+
+This guide shows you how to {{task}}.
+
+## Prerequisites
+
+{{#if prerequisites}}
+{{#each prerequisites}}
+- {{this}}
+{{/each}}
+{{else}}
+- Basic familiarity with the project
+- Required dependencies installed
+- Access to the necessary resources
+{{/if}}
+
+---
+
+## Quick Start
+
+If you're in a hurry, here's the minimum you need to do:
+
+```{{language}}
+{{#if quick_start}}
+{{quick_start}}
+{{else}}
+// 1. Set up your environment
+// 2. Configure the necessary options
+// 3. Execute the required operations
+// 4. Verify the results
+{{/if}}
+```
+
+For detailed explanations, continue reading below.
+
+---
+
+## Step-by-Step Instructions
+
+### Step 1: Prepare Your Environment
+
+{{#if step1_details}}
+{{step1_details}}
+{{else}}
+Ensure you have the necessary setup completed before proceeding.
+{{/if}}
+
+{{#if step1_code}}
+```{{language}}
+{{step1_code}}
+```
+{{/if}}
+
+### Step 2: Configure the Settings
+
+{{#if step2_details}}
+{{step2_details}}
+{{else}}
+Configure the required parameters for your task.
+{{/if}}
+
+{{#if relevant_configs}}
+**Configuration Options:**
+
+{{#each relevant_configs}}
+- `{{path}}` ({{format}})
+{{/each}}
+{{/if}}
+
+{{#if step2_code}}
+```{{language}}
+{{step2_code}}
+```
+{{/if}}
+
+### Step 3: Execute the Task
+
+{{#if step3_details}}
+{{step3_details}}
+{{else}}
+Now you're ready to perform the main task.
+{{/if}}
+
+{{#if relevant_functions}}
+**Relevant Functions:**
+
+{{#each relevant_functions}}
+#### `{{name}}`
+
+{{#if documentation}}
+{{documentation}}
+{{/if}}
+
+```{{../language}}
+{{signature}}
+```
+
+{{#if parameters}}
+**Parameters:**
+{{#each parameters}}
+- `{{name}}`: `{{type_annotation}}`{{#if default_value}} (default: `{{default_value}}`){{/if}}
+{{/each}}
+{{/if}}
+
+{{/each}}
+{{/if}}
+
+{{#if step3_code}}
+```{{language}}
+{{step3_code}}
+```
+{{/if}}
+
+### Step 4: Verify the Results
+
+{{#if step4_details}}
+{{step4_details}}
+{{else}}
+Confirm that the task completed successfully.
+{{/if}}
+
+{{#if step4_code}}
+```{{language}}
+{{step4_code}}
+```
+{{/if}}
+
+---
+
+## Complete Example
+
+Here's a complete working example that ties everything together:
+
+```{{language}}
+{{#if complete_example}}
+{{complete_example}}
+{{else}}
+// Complete example implementation
+// Combining all the steps above
+
+// Step 1: Setup
+// [Add your setup code here]
+
+// Step 2: Configuration
+// [Add your configuration here]
+
+// Step 3: Execution
+// [Add your execution code here]
+
+// Step 4: Verification
+// [Add your verification code here]
+{{/if}}
+```
+
+{{#if example_output}}
+**Expected Output:**
+
+```
+{{example_output}}
+```
+{{/if}}
+
+---
+
+## Common Variations
+
+{{#if variations}}
+{{#each variations}}
+### {{name}}
+
+{{description}}
+
+{{#if code}}
+```{{../language}}
+{{code}}
+```
+{{/if}}
+
+{{/each}}
+{{else}}
+### Variation 1: Basic Usage
+
+The example above shows the standard approach. Adjust parameters as needed for your use case.
+
+### Variation 2: Advanced Configuration
+
+For more complex scenarios, you may need additional configuration options. Refer to the reference documentation for all available options.
+
+### Variation 3: Batch Processing
+
+If you need to process multiple items, consider using a loop or batch processing approach.
+{{/if}}
+
+---
+
+## Troubleshooting
+
+{{#if troubleshooting}}
+{{#each troubleshooting}}
+### {{problem}}
+
+**Symptoms:**
+{{#if symptoms}}
+{{symptoms}}
+{{else}}
+The operation fails or produces unexpected results.
+{{/if}}
+
+**Solution:**
+{{solution}}
+
+{{#if solution_code}}
+```{{../language}}
+{{solution_code}}
+```
+{{/if}}
+
+{{/each}}
+{{else}}
+### Problem: Task fails with an error
+
+**Solution:**
+- Check that all prerequisites are met
+- Verify your configuration is correct
+- Review the error message for specific details
+- Consult the reference documentation for parameter requirements
+
+### Problem: Unexpected results
+
+**Solution:**
+- Double-check your input parameters
+- Verify the configuration matches your requirements
+- Review the function documentation for expected behavior
+- Test with minimal example to isolate the issue
+
+### Problem: Performance issues
+
+**Solution:**
+- Check for any resource constraints
+- Review configuration for optimization opportunities
+- Consider using batch processing for multiple operations
+- Consult the explanation documentation for performance guidance
+{{/if}}
+
+---
+
+## Best Practices
+
+{{#if best_practices}}
+{{#each best_practices}}
+- **{{title}}**: {{description}}
+{{/each}}
+{{else}}
+- **Error Handling**: Always handle potential errors appropriately
+- **Validation**: Validate inputs before processing
+- **Testing**: Test your implementation with various scenarios
+- **Documentation**: Document any custom configurations or variations
+- **Performance**: Consider performance implications for large-scale operations
+{{/if}}
+
+---
+
+## Related Guides
+
+{{#if related_guides}}
+{{#each related_guides}}
+- [{{title}}]({{link}})
+{{/each}}
+{{else}}
+- Reference documentation for detailed API information
+- Tutorial for learning the fundamentals
+- Explanation documentation for understanding concepts
+{{/if}}
+
+---
+
+## Next Steps
+
+After completing this task, you might want to:
+
+{{#if next_steps}}
+{{#each next_steps}}
+- {{this}}
+{{/each}}
+{{else}}
+- Explore related functionality
+- Optimize your implementation
+- Integrate with other parts of your system
+- Read the explanation documentation for deeper understanding
+{{/if}}
+
+---
+
+*This guide was automatically generated. For the most up-to-date information and additional examples, please refer to the project documentation.*

@@ -1,0 +1,141 @@
+# API Reference
+
+{{#if project_name}}
+## {{project_name}}
+{{/if}}
+
+{{#if project_description}}
+{{project_description}}
+{{/if}}
+
+---
+
+## Overview
+
+This reference documentation provides detailed information about all public APIs, types, and functions available in this codebase.
+
+**Statistics:**
+- Total Modules: {{modules.length}}
+- Total Functions: {{functions.length}}
+- Total Types: {{types.length}}
+- Configuration Files: {{configs.length}}
+
+---
+
+## Modules
+
+{{#each modules}}
+{{#if (eq visibility "Public")}}
+### {{name}}
+
+**Path:** `{{path}}`
+
+{{#if documentation}}
+{{documentation}}
+{{/if}}
+
+{{/if}}
+{{/each}}
+
+---
+
+## Functions
+
+{{#each functions}}
+{{#if (eq visibility "Public")}}
+### `{{name}}`
+
+**Signature:**
+```
+{{signature}}
+```
+
+{{#if documentation}}
+**Description:**
+
+{{documentation}}
+{{/if}}
+
+{{#if parameters}}
+**Parameters:**
+
+{{#each parameters}}
+- `{{name}}`: `{{type_annotation}}`{{#if default_value}} (default: `{{default_value}}`){{/if}}
+{{/each}}
+{{/if}}
+
+{{#if return_type}}
+**Returns:** `{{return_type}}`
+{{/if}}
+
+{{#if is_async}}
+**Note:** This is an asynchronous function.
+{{/if}}
+
+**Visibility:** {{visibility}}
+
+---
+
+{{/if}}
+{{/each}}
+
+## Types
+
+{{#each types}}
+{{#if (eq visibility "Public")}}
+### {{kind}} `{{name}}`
+
+{{#if documentation}}
+**Description:**
+
+{{documentation}}
+{{/if}}
+
+{{#if fields}}
+**Fields:**
+
+{{#each fields}}
+- `{{name}}`: `{{type_annotation}}`{{#if documentation}} - {{documentation}}{{/if}}
+{{/each}}
+{{/if}}
+
+**Visibility:** {{visibility}}
+
+---
+
+{{/if}}
+{{/each}}
+
+## Configuration
+
+{{#if configs}}
+This project uses the following configuration files:
+
+{{#each configs}}
+### {{path}}
+
+**Format:** {{format}}
+
+{{#if (eq format "yaml")}}
+Configuration in YAML format.
+{{else if (eq format "toml")}}
+Configuration in TOML format.
+{{else if (eq format "json")}}
+Configuration in JSON format.
+{{/if}}
+
+{{/each}}
+{{/if}}
+
+---
+
+## Usage Examples
+
+For practical examples of how to use these APIs, please refer to:
+- Tutorial documentation for learning-oriented guides
+- How-To documentation for task-specific examples
+- Explanation documentation for conceptual understanding
+
+---
+
+*This reference was automatically generated. For the most up-to-date information, please refer to the source code.*

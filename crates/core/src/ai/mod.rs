@@ -5,77 +5,204 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 pub mod client;
+pub mod confidence;
+pub mod context;
 pub mod prompts;
+pub mod validator;
 
 pub use client::OllamaClient;
+pub use confidence::{ConfidenceScore, ConfidenceScorer, DocumentType, ScoringContext};
+pub use context::{ContextManager, PromptComponent, TokenBudget};
 pub use prompts::PromptTemplateLibrary;
+pub use validator::{ResponseValidator, ValidationResult};
 
-/// AI analysis service
+/// AI analysis service with validation and confidence scoring
 #[derive(Debug)]
 pub struct AIAnalysisService {
     client: Arc<OllamaClient>,
     model_config: ModelConfig,
     prompt_templates: PromptTemplateLibrary,
+    validator: ResponseValidator,
+    confidence_scorer: ConfidenceScorer,
+    context_manager: ContextManager,
+    retry_attempts: u32,
 }
 
 impl AIAnalysisService {
     /// Create a new AI analysis service
     pub fn new(ollama_url: String, model_config: ModelConfig) -> Self {
+        let context_manager = ContextManager::new(model_config.context_window);
+
         Self {
             client: Arc::new(OllamaClient::new(ollama_url)),
             model_config,
             prompt_templates: PromptTemplateLibrary::new(),
+            validator: ResponseValidator::new().with_min_length(100),
+            confidence_scorer: ConfidenceScorer::new(),
+            context_manager,
+            retry_attempts: 3,
         }
     }
 
-    /// Analyze code structure and generate summary
+    /// Create service with custom validator
+    pub fn with_validator(mut self, validator: ResponseValidator) -> Self {
+        self.validator = validator;
+        self
+    }
+
+    /// Create service with custom confidence scorer
+    pub fn with_confidence_scorer(mut self, scorer: ConfidenceScorer) -> Self {
+        self.confidence_scorer = scorer;
+        self
+    }
+
+    /// Set maximum retry attempts
+    pub fn with_retry_attempts(mut self, attempts: u32) -> Self {
+        self.retry_attempts = attempts;
+        self
+    }
+
+    /// Analyze code structure and generate summary with validation
     pub async fn analyze_code_structure(
         &self,
         structure: &CodeStructure,
     ) -> Result<AnalysisResult> {
         let prompt = self.prompt_templates.code_analysis_prompt(structure);
+        let context = ScoringContext::new(DocumentType::Summary);
 
-        let response = self.generate(&prompt).await?;
+        let response = self.generate_with_validation(&prompt, &context).await?;
 
-        Ok(AnalysisResult {
-            summary: response,
-            confidence: 0.8, // TODO: Calculate confidence
-        })
+        Ok(response)
     }
 
-    /// Generate API documentation
+    /// Generate API documentation with validation
     pub async fn generate_api_documentation(&self, structure: &CodeStructure) -> Result<String> {
         let prompt = self.prompt_templates.api_documentation_prompt(structure);
-        self.generate(&prompt).await
+        let context = ScoringContext::new(DocumentType::ApiDocs).requires_code();
+
+        let result = self.generate_with_validation(&prompt, &context).await?;
+        Ok(result.summary)
     }
 
-    /// Generate tutorial content
+    /// Generate tutorial content with validation
     pub async fn generate_tutorial(
         &self,
         structure: &CodeStructure,
         topic: &str,
     ) -> Result<String> {
         let prompt = self.prompt_templates.tutorial_prompt(structure, topic);
-        self.generate(&prompt).await
+        let context = ScoringContext::new(DocumentType::Tutorial).requires_code();
+
+        let result = self.generate_with_validation(&prompt, &context).await?;
+        Ok(result.summary)
     }
 
-    /// Generate how-to guide
+    /// Generate how-to guide with validation
     pub async fn generate_howto(&self, structure: &CodeStructure, task: &str) -> Result<String> {
         let prompt = self.prompt_templates.howto_prompt(structure, task);
-        self.generate(&prompt).await
+        let context = ScoringContext::new(DocumentType::HowTo).requires_code();
+
+        let result = self.generate_with_validation(&prompt, &context).await?;
+        Ok(result.summary)
     }
 
-    /// Generate explanation documentation
+    /// Generate explanation documentation with validation
     pub async fn generate_explanation(
         &self,
         structure: &CodeStructure,
         concept: &str,
     ) -> Result<String> {
         let prompt = self.prompt_templates.explanation_prompt(structure, concept);
-        self.generate(&prompt).await
+        let context = ScoringContext::new(DocumentType::Explanation);
+
+        let result = self.generate_with_validation(&prompt, &context).await?;
+        Ok(result.summary)
     }
 
-    /// Generate text using the configured model
+    /// Generate text with validation, confidence scoring, and retry logic
+    async fn generate_with_validation(
+        &self,
+        prompt: &str,
+        context: &ScoringContext,
+    ) -> Result<AnalysisResult> {
+        // Check if prompt fits in context window
+        let optimized_prompt = if !self.context_manager.fits_in_context(prompt) {
+            tracing::warn!("Prompt exceeds context window, truncating");
+            self.context_manager.truncate_to_fit(prompt)?
+        } else {
+            prompt.to_string()
+        };
+
+        let mut last_error = None;
+
+        // Try with retries
+        for attempt in 1..=self.retry_attempts {
+            tracing::debug!("Generation attempt {} of {}", attempt, self.retry_attempts);
+
+            match self.generate(&optimized_prompt).await {
+                Ok(response) => {
+                    // Validate response
+                    let validation = self.validator.validate(&response)?;
+
+                    if !validation.is_valid() {
+                        tracing::warn!("Response validation failed: {:?}", validation.issues);
+                        if attempt < self.retry_attempts {
+                            last_error =
+                                Some(format!("Validation failed: {}", validation.summary()));
+                            continue;
+                        }
+                        return Err(XzeError::validation(format!(
+                            "Response validation failed after {} attempts",
+                            self.retry_attempts
+                        )));
+                    }
+
+                    // Score confidence
+                    let confidence = self.confidence_scorer.score(&response, context)?;
+
+                    tracing::info!(
+                        "Generated response with confidence: {:.2} ({})",
+                        confidence.overall,
+                        confidence.level()
+                    );
+
+                    // Check if confidence meets minimum threshold
+                    if confidence.overall < 0.4 {
+                        tracing::warn!("Low confidence score: {:.2}", confidence.overall);
+                        if attempt < self.retry_attempts {
+                            last_error = Some(format!("Low confidence: {:.2}", confidence.overall));
+                            continue;
+                        }
+                    }
+
+                    return Ok(AnalysisResult {
+                        summary: response,
+                        confidence: confidence.overall,
+                        validation: Some(validation),
+                        confidence_score: Some(confidence),
+                    });
+                }
+                Err(e) => {
+                    tracing::warn!("Generation attempt {} failed: {}", attempt, e);
+                    last_error = Some(e.to_string());
+
+                    if attempt < self.retry_attempts {
+                        // Exponential backoff
+                        let delay = std::time::Duration::from_secs(2_u64.pow(attempt - 1));
+                        tokio::time::sleep(delay).await;
+                    }
+                }
+            }
+        }
+
+        Err(XzeError::ai(format!(
+            "Failed to generate valid response after {} attempts: {}",
+            self.retry_attempts,
+            last_error.unwrap_or_else(|| "Unknown error".to_string())
+        )))
+    }
+
+    /// Generate text using the configured model with fallback
     async fn generate(&self, prompt: &str) -> Result<String> {
         // Try primary model
         match self
@@ -133,11 +260,43 @@ impl AIAnalysisService {
     }
 }
 
-/// Analysis result
+/// Analysis result with validation and confidence metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisResult {
+    /// Generated text
     pub summary: String,
+    /// Confidence score (0.0-1.0)
     pub confidence: f32,
+    /// Validation result
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub validation: Option<ValidationResult>,
+    /// Detailed confidence scoring
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub confidence_score: Option<ConfidenceScore>,
+}
+
+impl AnalysisResult {
+    /// Check if result meets quality thresholds
+    pub fn is_high_quality(&self) -> bool {
+        self.confidence >= 0.7
+            && self
+                .validation
+                .as_ref()
+                .map(|v| v.is_valid())
+                .unwrap_or(true)
+    }
+
+    /// Get a quality summary
+    pub fn quality_summary(&self) -> String {
+        format!(
+            "Confidence: {:.1}%, Valid: {}",
+            self.confidence * 100.0,
+            self.validation
+                .as_ref()
+                .map(|v| v.is_valid())
+                .unwrap_or(true)
+        )
+    }
 }
 
 #[cfg(test)]
@@ -174,5 +333,33 @@ mod tests {
         let json = serde_json::to_string(&request).unwrap();
         assert!(json.contains("test"));
         assert!(json.contains("Hello"));
+    }
+
+    #[test]
+    fn test_analysis_result_quality() {
+        let high_quality = AnalysisResult {
+            summary: "Good result".to_string(),
+            confidence: 0.85,
+            validation: Some(ValidationResult {
+                valid: true,
+                issues: vec![],
+                warnings: vec![],
+                length: 100,
+                has_code_blocks: true,
+                section_count: 5,
+            }),
+            confidence_score: None,
+        };
+
+        assert!(high_quality.is_high_quality());
+
+        let low_quality = AnalysisResult {
+            summary: "Poor result".to_string(),
+            confidence: 0.3,
+            validation: None,
+            confidence_score: None,
+        };
+
+        assert!(!low_quality.is_high_quality());
     }
 }
