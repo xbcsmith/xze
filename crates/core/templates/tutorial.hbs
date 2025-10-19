@@ -1,0 +1,229 @@
+# Tutorial: {{topic}}
+
+## What You Will Learn
+
+In this tutorial, you will learn how to use {{topic}} in this project. By the end, you will have a solid understanding of the concepts and practical experience implementing them.
+
+**Prerequisites:**
+- Basic understanding of {{language}}
+- Familiarity with command-line tools
+- Development environment set up
+
+**Time to Complete:** Approximately 30-45 minutes
+
+---
+
+## Introduction
+
+{{#if project_description}}
+{{project_description}}
+{{/if}}
+
+This tutorial will guide you through {{topic}} step by step, with hands-on examples you can follow along.
+
+---
+
+## Step 1: Understanding the Basics
+
+Let's start by understanding the core concepts.
+
+{{#if relevant_types}}
+### Key Types
+
+{{#each relevant_types}}
+#### {{kind}} `{{name}}`
+
+{{#if documentation}}
+{{documentation}}
+{{/if}}
+
+{{#if fields}}
+**Fields:**
+{{#each fields}}
+- `{{name}}`: `{{type_annotation}}`
+{{/each}}
+{{/if}}
+
+{{/each}}
+{{/if}}
+
+---
+
+## Step 2: Setting Up
+
+Before we begin, let's set up our environment.
+
+{{#if setup_code}}
+```{{language}}
+{{setup_code}}
+```
+{{/if}}
+
+**What's happening here?**
+- We're importing the necessary modules
+- Setting up the basic configuration
+- Preparing our workspace
+
+---
+
+## Step 3: First Example
+
+Now let's create our first working example.
+
+{{#if example_functions}}
+### Using the Functions
+
+{{#each example_functions}}
+#### Example: {{name}}
+
+```{{../language}}
+{{signature}}
+```
+
+{{#if documentation}}
+{{documentation}}
+{{/if}}
+
+**Try it yourself:**
+
+```{{../language}}
+// Example usage
+{{#if example_usage}}
+{{example_usage}}
+{{else}}
+// TODO: Add example usage for {{name}}
+{{/if}}
+```
+
+{{/each}}
+{{/if}}
+
+---
+
+## Step 4: Building Something Real
+
+Now that you understand the basics, let's build a complete example.
+
+### Complete Example
+
+```{{language}}
+{{#if complete_example}}
+{{complete_example}}
+{{else}}
+// Combine the concepts from previous steps
+// 1. Set up your configuration
+// 2. Initialize the required types
+// 3. Use the functions we learned about
+// 4. Handle results appropriately
+{{/if}}
+```
+
+### Breaking It Down
+
+Let's understand what each part does:
+
+1. **Initialization**: We start by setting up our environment
+2. **Configuration**: We configure the necessary parameters
+3. **Execution**: We run our main logic
+4. **Cleanup**: We handle any cleanup operations
+
+---
+
+## Step 5: Common Patterns
+
+Here are some common patterns you'll use frequently:
+
+{{#if patterns}}
+{{#each patterns}}
+### Pattern: {{name}}
+
+{{description}}
+
+```{{../language}}
+{{code}}
+```
+
+{{/each}}
+{{else}}
+### Pattern 1: Basic Usage
+
+Follow the examples from the previous steps as templates for your own implementations.
+
+### Pattern 2: Error Handling
+
+Always handle errors appropriately to make your code robust.
+
+### Pattern 3: Testing
+
+Write tests for your implementations to ensure they work correctly.
+{{/if}}
+
+---
+
+## Step 6: Next Steps
+
+Congratulations! You've completed the tutorial on {{topic}}.
+
+### What You've Learned
+
+- Core concepts of {{topic}}
+- How to set up and configure the system
+- Practical examples of implementation
+- Common patterns and best practices
+
+### Where to Go From Here
+
+- **How-To Guides**: Learn how to accomplish specific tasks
+- **Reference Documentation**: Detailed API information for all functions
+- **Explanations**: Deep dive into architectural decisions and concepts
+
+### Practice Exercises
+
+Try these exercises to reinforce your learning:
+
+1. Modify the examples to suit your specific use case
+2. Experiment with different configuration options
+3. Combine multiple functions to create more complex workflows
+4. Write tests for your implementations
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue: Something doesn't work as expected**
+- Check that all dependencies are installed
+- Verify your configuration is correct
+- Review the error messages carefully
+
+**Issue: Performance is slow**
+- Review the performance tips in the explanation documentation
+- Consider adjusting configuration parameters
+- Profile your code to identify bottlenecks
+
+{{#if troubleshooting}}
+{{#each troubleshooting}}
+**Issue: {{problem}}**
+- {{solution}}
+
+{{/each}}
+{{/if}}
+
+---
+
+## Additional Resources
+
+{{#if resources}}
+{{#each resources}}
+- [{{title}}]({{url}})
+{{/each}}
+{{else}}
+- Project README for general information
+- API Reference for detailed function documentation
+- How-To guides for specific tasks
+{{/if}}
+
+---
+
+*This tutorial was automatically generated. If you find any issues or have suggestions for improvement, please let us know.*

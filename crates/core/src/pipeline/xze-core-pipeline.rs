@@ -73,14 +73,14 @@ impl PipelineService {
     /// Submit a new job
     pub async fn submit_job(&self, repo_id: RepoId, target_repo_path: PathBuf) -> Result<JobId> {
         let job_id = JobId::new();
-        
+
         let job = PipelineJob::new(job_id, repo_id.clone(), target_repo_path);
-        
+
         let mut jobs = self.jobs.write().await;
         jobs.insert(job_id, job);
-        
+
         tracing::info!("Submitted job {} for repository {}", job_id, repo_id.as_str());
-        
+
         Ok(job_id)
     }
 
@@ -171,7 +171,7 @@ impl PipelineService {
     ) -> Result<()> {
         for doc in documents {
             let file_path = target_path.join(doc.file_path("service")); // TODO: Use actual service name
-            
+
             if let Some(parent) = file_path.parent() {
                 tokio::fs::create_dir_all(parent).await?;
             }
@@ -239,14 +239,14 @@ mod tests {
 
     fn create_test_service() -> PipelineService {
         let temp = tempdir().unwrap();
-        
+
         let repo_manager = RepositoryManager::new(temp.path()).unwrap();
         let ai_service = Arc::new(AIAnalysisService::new(
             "http://localhost:11434".to_string(),
             ModelConfig::default(),
         ));
         let git_ops = GitOperations::new(CredentialStore::new());
-        
+
         let config = PipelineConfig {
             documentation_repo_url: "https://example.com/docs".to_string(),
             documentation_repo_path: temp.path().to_path_buf(),
@@ -260,7 +260,7 @@ mod tests {
     async fn test_submit_job() {
         let service = create_test_service();
         let temp = tempdir().unwrap();
-        
+
         let job_id = service.submit_job(
             RepoId::from("test-repo"),
             temp.path().to_path_buf(),
@@ -273,7 +273,7 @@ mod tests {
     async fn test_list_jobs() {
         let service = create_test_service();
         let temp = tempdir().unwrap();
-        
+
         let _ = service.submit_job(
             RepoId::from("test-repo-1"),
             temp.path().to_path_buf(),

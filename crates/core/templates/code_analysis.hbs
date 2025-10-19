@@ -1,0 +1,216 @@
+# Code Analysis Report
+
+## Project Overview
+
+{{#if project_name}}
+**Project:** {{project_name}}
+{{/if}}
+
+{{#if project_description}}
+**Description:** {{project_description}}
+{{/if}}
+
+**Analysis Date:** {{analysis_date}}
+
+---
+
+## Code Structure Summary
+
+**Statistics:**
+- **Total Items:** {{total_items}}
+- **Modules:** {{modules.length}}
+- **Functions:** {{functions.length}} ({{public_functions}} public, {{private_functions}} private)
+- **Types:** {{types.length}}
+- **Configuration Files:** {{configs.length}}
+
+{{#if language}}
+**Primary Language:** {{language}}
+{{/if}}
+
+---
+
+## Module Analysis
+
+{{#if modules}}
+### Modules Overview
+
+{{#each modules}}
+#### {{name}}
+
+**Path:** `{{path}}`
+
+**Visibility:** {{visibility}}
+
+{{#if documentation}}
+**Documentation:**
+{{documentation}}
+{{/if}}
+
+{{/each}}
+{{else}}
+No modules detected in the codebase.
+{{/if}}
+
+---
+
+## Function Analysis
+
+### Public Functions
+
+{{#each functions}}
+{{#if (eq visibility "Public")}}
+#### `{{name}}`
+
+**Signature:**
+```
+{{signature}}
+```
+
+{{#if documentation}}
+**Documentation:**
+{{documentation}}
+{{/if}}
+
+{{#if parameters}}
+**Parameters:**
+{{#each parameters}}
+- `{{name}}`: `{{type_annotation}}`{{#if default_value}} = `{{default_value}}`{{/if}}
+{{/each}}
+{{/if}}
+
+{{#if return_type}}
+**Returns:** `{{return_type}}`
+{{/if}}
+
+{{#if is_async}}
+**Note:** Asynchronous function
+{{/if}}
+
+---
+
+{{/if}}
+{{/each}}
+
+### Private Functions
+
+{{#each functions}}
+{{#if (eq visibility "Private")}}
+- `{{name}}`{{#if documentation}} - {{documentation}}{{/if}}
+{{/if}}
+{{/each}}
+
+---
+
+## Type Definitions
+
+{{#each types}}
+### {{kind}} `{{name}}`
+
+**Visibility:** {{visibility}}
+
+{{#if documentation}}
+**Documentation:**
+{{documentation}}
+{{/if}}
+
+{{#if fields}}
+**Fields:**
+{{#each fields}}
+- `{{name}}`: `{{type_annotation}}`{{#if documentation}} - {{documentation}}{{/if}}
+{{/each}}
+{{/if}}
+
+---
+
+{{/each}}
+
+---
+
+## Configuration Files
+
+{{#if configs}}
+This project uses the following configuration files:
+
+{{#each configs}}
+- **{{path}}** ({{format}})
+{{/each}}
+
+{{else}}
+No configuration files detected.
+{{/if}}
+
+---
+
+## Analysis Insights
+
+### Architectural Patterns
+
+Based on the code structure analysis:
+
+1. **Modularity**: {{#if modules}}The codebase is organized into {{modules.length}} modules, suggesting a modular architecture.{{else}}Limited module organization detected.{{/if}}
+
+2. **API Design**: {{public_functions}} public functions are exposed, indicating the public API surface.
+
+3. **Type Safety**: {{types.length}} type definitions suggest {{#if (gt types.length 10)}}strong{{else if (gt types.length 5)}}moderate{{else}}basic{{/if}} type modeling.
+
+### Code Quality Indicators
+
+{{#if (gt public_functions 0)}}
+- **Public API**: Well-defined with {{public_functions}} public functions
+{{/if}}
+
+{{#if (gt types.length 0)}}
+- **Type System**: {{types.length}} custom types for domain modeling
+{{/if}}
+
+{{#if (gt modules.length 0)}}
+- **Organization**: {{modules.length}} modules for separation of concerns
+{{/if}}
+
+### Documentation Coverage
+
+{{#if documented_items}}
+- **Documented Items:** {{documented_items}} / {{total_items}} ({{documentation_percentage}}%)
+{{else}}
+- Documentation analysis pending
+{{/if}}
+
+### Recommendations
+
+Based on this analysis, consider:
+
+1. **Documentation**: {{#if (lt documentation_percentage 70)}}Improve documentation coverage for public APIs{{else}}Maintain current documentation standards{{/if}}
+
+2. **Modularity**: {{#if (lt modules.length 3)}}Consider breaking the codebase into more focused modules{{else}}Good modular organization{{/if}}
+
+3. **API Surface**: {{#if (gt public_functions 50)}}Review if all public functions need to be exposed{{else}}Appropriate API surface{{/if}}
+
+4. **Type Safety**: {{#if (gt types.length 20)}}Rich type system in place{{else}}Consider adding more domain types for clarity{{/if}}
+
+---
+
+## Next Steps
+
+### For Developers
+
+- Review the public API functions for your use case
+- Examine type definitions to understand domain model
+- Read module documentation for architectural overview
+
+### For Documentation
+
+- Generate detailed API reference for public functions
+- Create tutorials for common use cases
+- Write how-to guides for specific tasks
+- Develop explanations for key concepts
+
+### For Maintenance
+
+- Verify all public APIs are documented
+- Ensure configuration files are current
+- Review private functions for potential refactoring
+- Check for unused or dead code
+
+---
+
+*This analysis was automatically generated. Review the detailed sections above for specific insights about the codebase structure.*

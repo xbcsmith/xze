@@ -7,12 +7,16 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc};
 
+pub mod crossref;
 pub mod generator;
+pub mod index;
 pub mod validator;
 
+pub use crossref::{CrossReference, CrossReferenceGenerator, LinkStrategy, Relationship};
 pub use generator::{
     AIDocumentationGenerator, Document, DocumentMetadata, DocumentationGenerator, GeneratorConfig,
 };
+pub use index::IndexGenerator;
 pub use validator::{
     DiátaxisValidator, DocumentationValidator, ValidationResult, ValidatorConfig
 };

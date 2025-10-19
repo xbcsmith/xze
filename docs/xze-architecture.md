@@ -60,12 +60,14 @@ XZe follows a modular, layered architecture designed for flexibility across mult
 #### 2.1.1 CLI Module (`xze-cli`)
 
 **Responsibilities**:
+
 - Parse command-line arguments
 - Validate input parameters
 - Invoke orchestration layer
 - Display progress and results
 
 **Key Interfaces**:
+
 ```rust
 pub struct CliConfig {
     mode: OperationMode,
@@ -82,6 +84,7 @@ pub enum OperationMode {
 ```
 
 **Commands**:
+
 - `xze analyze <repo-paths>` - Analyze repositories in local mode
 - `xze watch <config.yaml>` - Monitor repositories in auto mode
 - `xze generate <repo-path>` - Generate documentation for single repository
@@ -90,12 +93,14 @@ pub enum OperationMode {
 #### 2.1.2 Server Module (`xze-server`)
 
 **Responsibilities**:
+
 - RESTful API endpoint exposure
 - WebSocket support for real-time updates
 - Authentication/Authorization (future)
 - Request queuing and rate limiting
 
 **API Endpoints**:
+
 ```
 POST   /api/v1/analyze          - Trigger analysis
 GET    /api/v1/status/:job_id   - Check job status
@@ -106,6 +111,7 @@ WS     /api/v1/stream           - Real-time event stream
 ```
 
 **Technology Stack**:
+
 - Framework: `axum` (async web framework)
 - Serialization: `serde_json`
 - WebSocket: `tokio-tungstenite`
@@ -113,12 +119,14 @@ WS     /api/v1/stream           - Real-time event stream
 #### 2.1.3 VSCode Extension Module (`xze-vscode`)
 
 **Responsibilities**:
+
 - Integrate with VSCode workspace
 - Provide commands via command palette
 - Display documentation generation progress
 - Copilot integration for documentation suggestions
 
 **Components**:
+
 - TypeScript extension host
 - Rust binary (xze-cli) invocation via Node.js child process
 - Language Server Protocol (LSP) for documentation awareness
@@ -128,12 +136,14 @@ WS     /api/v1/stream           - Real-time event stream
 #### 2.2.1 Documentation Pipeline Controller
 
 **Responsibilities**:
+
 - Coordinate end-to-end documentation workflow
 - Manage state transitions
 - Handle error recovery
 - Dispatch work to service layer
 
 **Workflow State Machine**:
+
 ```
 ┌──────────────┐
 │   Idle       │
@@ -166,6 +176,7 @@ WS     /api/v1/stream           - Real-time event stream
 ```
 
 **Key Structure**:
+
 ```rust
 pub struct PipelineController {
     repo_manager: Arc<RepositoryManager>,
@@ -189,12 +200,14 @@ pub struct PipelineJob {
 #### 2.3.1 Repository Manager
 
 **Responsibilities**:
+
 - Abstract repository access (local/remote)
 - Cache repository metadata
 - Track repository changes
 - Index code structure
 
 **Key Features**:
+
 ```rust
 pub struct RepositoryManager {
     cache_dir: PathBuf,
@@ -218,6 +231,7 @@ pub struct CodeStructure {
 ```
 
 **Capabilities**:
+
 - Parse source code using `tree-sitter`
 - Extract configuration from YAML/TOML/JSON
 - Identify dependencies and relationships
@@ -226,12 +240,14 @@ pub struct CodeStructure {
 #### 2.3.2 AI Analysis Service
 
 **Responsibilities**:
+
 - Interface with Ollama API
 - Manage model selection and fallback
 - Context window management
 - Prompt engineering for documentation tasks
 
 **Model Strategy**:
+
 ```rust
 pub struct AIAnalysisService {
     ollama_client: OllamaClient,
@@ -248,6 +264,7 @@ pub struct ModelConfig {
 ```
 
 **Analysis Capabilities**:
+
 - Code understanding and summarization
 - Architecture pattern detection
 - API endpoint extraction
@@ -255,6 +272,7 @@ pub struct ModelConfig {
 - Existing documentation quality assessment
 
 **Prompt Templates** (Diátaxis-aligned):
+
 - Reference generation: Extract function signatures, parameters, return types
 - Tutorial generation: Identify common workflows and user journeys
 - How-to generation: Extract procedural tasks from code patterns
@@ -263,12 +281,14 @@ pub struct ModelConfig {
 #### 2.3.3 Documentation Generator
 
 **Responsibilities**:
+
 - Generate Markdown documentation
 - Organize content according to Diátaxis framework
 - Apply documentation templates
 - Maintain cross-references
 
 **Diátaxis Structure**:
+
 ```
 pipeline-documentation/
 ├── tutorials/
@@ -291,6 +311,7 @@ pipeline-documentation/
 ```
 
 **Generator Modules**:
+
 ```rust
 pub trait DocumentationGenerator {
     async fn generate_reference(&self, repo: &Repository) -> Result<Vec<Document>>;
@@ -310,11 +331,13 @@ pub struct Document {
 #### 2.3.4 Change Detector
 
 **Responsibilities**:
+
 - Monitor git repositories for changes
 - Determine if changes require documentation updates
 - Prioritize documentation work
 
 **Detection Strategy**:
+
 ```rust
 pub struct ChangeDetector {
     watcher: Option<FileWatcher>,
@@ -337,6 +360,7 @@ pub enum Significance {
 ```
 
 **Change Rules**:
+
 - API signature changes → Update Reference + How-to
 - New endpoints → Create Reference + How-to
 - Configuration changes → Update Reference
@@ -346,6 +370,7 @@ pub enum Significance {
 #### 2.3.5 Git Operations
 
 **Responsibilities**:
+
 - Clone repositories
 - Create branches
 - Commit changes
@@ -353,6 +378,7 @@ pub enum Significance {
 - Manage authentication
 
 **Implementation**:
+
 ```rust
 pub struct GitOperations {
     credentials: CredentialStore,
@@ -372,35 +398,42 @@ impl GitOperations {
 #### 2.3.6 PR Manager
 
 **Responsibilities**:
+
 - Create pull requests
 - Format PR descriptions
 - Link to source changes
 - Tag reviewers (configurable)
 
 **PR Template**:
+
 ```markdown
 ## Documentation Update
 
 ### Source Changes
+
 - Repository: {source_repo}
 - Commit Range: {from_commit}..{to_commit}
 - Changed Files: {file_list}
 
 ### Documentation Changes
+
 - **Reference**: Updated API documentation
 - **How-to**: Added new configuration guide
 - **Tutorial**: Updated getting started guide
 
 ### AI Analysis Summary
+
 {ai_summary}
 
 ### Review Checklist
+
 - [ ] Technical accuracy verified
 - [ ] Code examples tested
 - [ ] Links validated
 - [ ] Diátaxis structure maintained
 
 ---
+
 Generated by XZe Documentation Tool
 ```
 
@@ -409,12 +442,14 @@ Generated by XZe Documentation Tool
 #### 2.4.1 Ollama Client
 
 **Responsibilities**:
+
 - HTTP client for Ollama API
 - Request/response serialization
 - Connection pooling
 - Error handling and retry logic
 
 **Implementation**:
+
 ```rust
 pub struct OllamaClient {
     base_url: String,
@@ -430,6 +465,7 @@ pub struct GenerateRequest {
 ```
 
 **Error Handling**:
+
 - Model not found → Fallback to alternative model
 - Context too large → Chunk and summarize
 - Connection failure → Retry with exponential backoff
@@ -437,6 +473,7 @@ pub struct GenerateRequest {
 #### 2.4.2 File System Abstraction
 
 **Responsibilities**:
+
 - Unified interface for file operations
 - Support for virtual file systems (testing)
 - Path normalization
@@ -454,12 +491,14 @@ pub trait FileSystem: Send + Sync {
 #### 2.4.3 Structured Logger
 
 **Responsibilities**:
+
 - JSON-formatted logging
 - Contextual log enrichment
 - Performance metrics
 - Error tracking
 
 **Log Schema**:
+
 ```json
 {
   "timestamp": "2025-10-12T14:30:00Z",
@@ -481,6 +520,7 @@ pub trait FileSystem: Send + Sync {
 ### 3.1 Configuration Schema
 
 **Repository Configuration** (`config.yaml`):
+
 ```yaml
 version: "1.0"
 documentation_repo:
@@ -492,7 +532,7 @@ repositories:
     url: "https://github.com/org/auth-service"
     language: "rust"
     watch_branches: ["main", "develop"]
-    
+
   - name: "api-gateway"
     url: "https://github.com/org/api-gateway"
     language: "go"
@@ -503,11 +543,11 @@ ollama:
   models:
     primary: "codellama:13b"
     fallback: ["mistral:7b"]
-  
+
 generation:
   temperature: 0.3
   max_tokens: 4096
-  
+
 pr:
   auto_assign_reviewers: ["tech-lead", "docs-team"]
   labels: ["documentation", "automated"]
@@ -587,19 +627,19 @@ For each repository:
      - API endpoints → API reference
      - Configuration → Config reference
      - CLI commands → CLI reference
-     
+
   3. Generate How-to guides:
      - Common patterns in code → How-to tasks
      - Configuration examples → Setup guides
-     
+
   4. Generate Tutorials:
      - Main use cases → Step-by-step tutorials
      - Integration patterns → Integration guides
-     
+
   5. Generate Explanations:
      - Architecture patterns → Design explanations
      - Trade-offs in code → Decision rationale
-     
+
   6. Cross-reference all documents
   7. Validate generated markdown
   8. Write to pipeline-documentation structure
@@ -609,18 +649,18 @@ For each repository:
 
 ### 5.1 Core Dependencies
 
-| Component | Library | Purpose |
-|-----------|---------|---------|
-| Async Runtime | `tokio` | Async task execution |
-| HTTP Client | `reqwest` | Ollama API communication |
-| CLI Parsing | `clap` | Command-line interface |
-| Web Framework | `axum` | REST API server |
-| Git Operations | `git2` | Git integration |
-| Code Parsing | `tree-sitter` | Source code parsing |
-| Serialization | `serde`, `serde_json` | Data serialization |
-| Logging | `tracing`, `tracing-subscriber` | Structured logging |
-| Error Handling | `anyhow`, `thiserror` | Error management |
-| Testing | `tokio-test`, `mockall` | Unit/integration testing |
+| Component      | Library                         | Purpose                  |
+| -------------- | ------------------------------- | ------------------------ |
+| Async Runtime  | `tokio`                         | Async task execution     |
+| HTTP Client    | `reqwest`                       | Ollama API communication |
+| CLI Parsing    | `clap`                          | Command-line interface   |
+| Web Framework  | `axum`                          | REST API server          |
+| Git Operations | `git2`                          | Git integration          |
+| Code Parsing   | `tree-sitter`                   | Source code parsing      |
+| Serialization  | `serde`, `serde_json`           | Data serialization       |
+| Logging        | `tracing`, `tracing-subscriber` | Structured logging       |
+| Error Handling | `anyhow`, `thiserror`           | Error management         |
+| Testing        | `tokio-test`, `mockall`         | Unit/integration testing |
 
 ### 5.2 Language-Specific Parsers
 
@@ -635,12 +675,14 @@ For each repository:
 ### 6.1 CLI Deployment
 
 **Distribution**:
+
 - GitHub Releases (binary artifacts)
 - Cargo install (`cargo install xze`)
 - Homebrew (macOS)
 - APT/YUM repositories (Linux)
 
 **System Requirements**:
+
 - Ollama running locally or accessible via network
 - Git installed
 - Network access to git repositories
@@ -650,8 +692,9 @@ For each repository:
 #### Docker Deployment
 
 **Dockerfile**:
+
 ```dockerfile
-FROM rust:1.75 as builder
+FROM rust:1.90 as builder
 WORKDIR /app
 COPY . .
 RUN cargo build --release --bin xze-server
@@ -664,8 +707,9 @@ CMD ["xze-server"]
 ```
 
 **Docker Compose**:
+
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   xze-server:
     build: .
@@ -679,7 +723,7 @@ services:
       - xze-cache:/var/cache/xze
     depends_on:
       - ollama
-      
+
   ollama:
     image: ollama/ollama:latest
     ports:
@@ -695,6 +739,7 @@ volumes:
 #### Kubernetes Deployment
 
 **Key Resources**:
+
 - Deployment: xze-server (horizontal scaling)
 - Service: LoadBalancer for API access
 - ConfigMap: Configuration file
@@ -702,6 +747,7 @@ volumes:
 - PersistentVolumeClaim: Cache storage
 
 **Scaling Considerations**:
+
 - Stateless design allows horizontal scaling
 - Job queue (Redis) for work distribution
 - Shared cache volume or S3-compatible storage
@@ -739,6 +785,7 @@ volumes:
 ### 8.2 Logging
 
 All operations logged as JSON with fields:
+
 - `job_id`: Unique identifier
 - `repository`: Repository name
 - `operation`: Type of operation
@@ -831,6 +878,7 @@ This architectural design provides a solid foundation for building XZe as a robu
 The system's async-first approach enables efficient concurrent processing of multiple repositories, while the stateless design facilitates horizontal scaling in server mode. The use of established Rust libraries and frameworks ensures reliability and community support.
 
 Key success factors include:
+
 - Well-defined component boundaries for parallel development
 - Comprehensive testing strategy at multiple levels
 - Observable operations through structured logging

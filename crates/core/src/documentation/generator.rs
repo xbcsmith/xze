@@ -3,12 +3,17 @@
 use crate::{
     ai::AIAnalysisService,
     error::{Result, XzeError},
-    repository::Repository,
+    repository::{CodeStructure, Repository},
     types::DiátaxisCategory,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 /// Documentation generator trait
@@ -188,21 +193,266 @@ impl DocumentMetadata {
 pub struct AIDocumentationGenerator {
     ai_service: Arc<AIAnalysisService>,
     config: GeneratorConfig,
+    template_cache: Arc<RwLock<HashMap<String, String>>>,
 }
 
 impl AIDocumentationGenerator {
     /// Create a new AI documentation generator
     pub fn new(ai_service: Arc<AIAnalysisService>, config: GeneratorConfig) -> Self {
-        Self { ai_service, config }
+        Self {
+            ai_service,
+            config,
+            template_cache: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Load template from cache or file
+    async fn load_template(&self, template_name: &str) -> Result<Option<String>> {
+        // Check cache first
+        {
+            let cache = self.template_cache.read().await;
+            if let Some(template) = cache.get(template_name) {
+                return Ok(Some(template.clone()));
+            }
+        }
+
+        // Load from file if template_dir is configured
+        if let Some(template_dir) = &self.config.template_dir {
+            let template_path = template_dir.join(format!("{}.md", template_name));
+            if template_path.exists() {
+                let content = tokio::fs::read_to_string(&template_path)
+                    .await
+                    .map_err(|e| XzeError::filesystem(format!("Failed to read template: {}", e)))?;
+
+                // Cache the template
+                let mut cache = self.template_cache.write().await;
+                cache.insert(template_name.to_string(), content.clone());
+
+                return Ok(Some(content));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// Build context for template rendering
+    fn build_context(&self, repo: &Repository, category: &DiátaxisCategory) -> TemplateContext {
+        TemplateContext {
+            project_name: repo.name().to_string(),
+            project_language: repo.language.to_string(),
+            category: category.clone(),
+            structure: repo.structure.clone(),
+            metadata: repo.metadata.clone(),
+        }
+    }
+
+    /// Generate table of contents for document
+    fn generate_toc(&self, content: &str) -> String {
+        let mut toc = String::from("## Table of Contents\n\n");
+        let mut in_code_block = false;
+
+        for line in content.lines() {
+            // Track code blocks to avoid headers inside them
+            if line.trim().starts_with("```") {
+                in_code_block = !in_code_block;
+                continue;
+            }
+
+            if in_code_block {
+                continue;
+            }
+
+            // Process markdown headers
+            if let Some(header) = line.trim().strip_prefix('#') {
+                let level = header.chars().take_while(|c| *c == '#').count() + 1;
+                let title = header.trim_start_matches('#').trim();
+
+                if level > 1 && level <= 4 {
+                    // Skip the main title (level 1)
+                    let indent = "  ".repeat(level - 2);
+                    let anchor = title
+                        .to_lowercase()
+                        .replace(char::is_whitespace, "-")
+                        .chars()
+                        .filter(|c| c.is_alphanumeric() || *c == '-')
+                        .collect::<String>();
+
+                    toc.push_str(&format!("{}- [{}](#{})\n", indent, title, anchor));
+                }
+            }
+        }
+
+        toc.push('\n');
+        toc
+    }
+
+    /// Insert TOC into content after first header
+    fn insert_toc(&self, content: &str) -> String {
+        let toc = self.generate_toc(content);
+        let lines: Vec<&str> = content.lines().collect();
+
+        // Find the first header
+        let mut insert_pos = 0;
+        for (i, line) in lines.iter().enumerate() {
+            if line.trim().starts_with('#') {
+                insert_pos = i + 1;
+                break;
+            }
+        }
+
+        // Skip any empty lines after the header
+        while insert_pos < lines.len() && lines[insert_pos].trim().is_empty() {
+            insert_pos += 1;
+        }
+
+        // Insert TOC
+        let mut result = String::new();
+        for (i, line) in lines.iter().enumerate() {
+            result.push_str(line);
+            result.push('\n');
+
+            if i == insert_pos - 1 {
+                result.push('\n');
+                result.push_str(&toc);
+            }
+        }
+
+        result
+    }
+
+    /// Generate cross-reference links
+    fn generate_cross_references(&self, documents: &[Document]) -> HashMap<String, Vec<String>> {
+        let mut references: HashMap<String, Vec<String>> = HashMap::new();
+
+        for doc in documents {
+            let mut related = Vec::new();
+
+            // Link tutorials to how-tos and references
+            match doc.category {
+                DiátaxisCategory::Tutorial => {
+                    for other in documents {
+                        if matches!(
+                            other.category,
+                            DiátaxisCategory::HowTo | DiátaxisCategory::Reference
+                        ) {
+                            related.push(format!(
+                                "[{}](../{}/{})",
+                                other.title,
+                                match other.category {
+                                    DiátaxisCategory::HowTo => "how-to",
+                                    DiátaxisCategory::Reference => "reference",
+                                    _ => "",
+                                },
+                                other
+                                    .file_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("")
+                            ));
+                        }
+                    }
+                }
+                DiátaxisCategory::HowTo => {
+                    for other in documents {
+                        if matches!(
+                            other.category,
+                            DiátaxisCategory::Tutorial | DiátaxisCategory::Reference
+                        ) {
+                            related.push(format!(
+                                "[{}](../{}/{})",
+                                other.title,
+                                match other.category {
+                                    DiátaxisCategory::Tutorial => "tutorials",
+                                    DiátaxisCategory::Reference => "reference",
+                                    _ => "",
+                                },
+                                other
+                                    .file_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("")
+                            ));
+                        }
+                    }
+                }
+                DiátaxisCategory::Reference => {
+                    for other in documents {
+                        if matches!(other.category, DiátaxisCategory::Explanation) {
+                            related.push(format!(
+                                "[{}](../explanation/{})",
+                                other.title,
+                                other
+                                    .file_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("")
+                            ));
+                        }
+                    }
+                }
+                DiátaxisCategory::Explanation => {
+                    for other in documents {
+                        if matches!(
+                            other.category,
+                            DiátaxisCategory::Tutorial | DiátaxisCategory::Reference
+                        ) {
+                            related.push(format!(
+                                "[{}](../{}/{})",
+                                other.title,
+                                match other.category {
+                                    DiátaxisCategory::Tutorial => "tutorials",
+                                    DiátaxisCategory::Reference => "reference",
+                                    _ => "",
+                                },
+                                other
+                                    .file_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("")
+                            ));
+                        }
+                    }
+                }
+            }
+
+            references.insert(doc.title.clone(), related);
+        }
+
+        references
+    }
+
+    /// Add related documentation section to content
+    fn add_related_docs(&self, content: &str, related: &[String]) -> String {
+        if related.is_empty() {
+            return content.to_string();
+        }
+
+        let mut result = content.to_string();
+
+        if !result.ends_with("\n\n") {
+            if result.ends_with('\n') {
+                result.push('\n');
+            } else {
+                result.push_str("\n\n");
+            }
+        }
+
+        result.push_str("## Related Documentation\n\n");
+        for link in related {
+            result.push_str(&format!("- {}\n", link));
+        }
+        result.push('\n');
+
+        result
     }
 
     /// Generate file path for document
     fn generate_file_path(&self, category: &DiátaxisCategory, title: &str) -> PathBuf {
         let category_dir = match category {
             DiátaxisCategory::Tutorial => "tutorials",
-            DiátaxisCategory::HowTo => "how-to",
+            DiátaxisCategory::HowTo => "how_to",
             DiátaxisCategory::Reference => "reference",
-            DiátaxisCategory::Explanation => "explanation",
+            DiátaxisCategory::Explanation => "explanations",
         };
 
         let filename = format!(
@@ -215,7 +465,7 @@ impl AIDocumentationGenerator {
                 .collect::<String>()
         );
 
-        PathBuf::from("docs").join(category_dir).join(filename)
+        self.config.output_dir.join(category_dir).join(filename)
     }
 
     /// Post-process generated content
@@ -476,6 +726,195 @@ impl DocumentWriter {
 
         info!("Wrote {} documents", written_files.len());
         Ok(written_files)
+    }
+
+    /// Generate index file for a category
+    pub async fn generate_index(
+        &self,
+        category: &DiátaxisCategory,
+        documents: &[Document],
+    ) -> Result<PathBuf> {
+        let category_dir = match category {
+            DiátaxisCategory::Tutorial => "tutorials",
+            DiátaxisCategory::HowTo => "how_to",
+            DiátaxisCategory::Reference => "reference",
+            DiátaxisCategory::Explanation => "explanations",
+        };
+
+        let index_path = self.config.output_dir.join(category_dir).join("README.md");
+
+        // Create parent directories
+        if let Some(parent) = index_path.parent() {
+            tokio::fs::create_dir_all(parent)
+                .await
+                .map_err(|e| XzeError::filesystem(format!("Failed to create directory: {}", e)))?;
+        }
+
+        // Filter documents for this category
+        let category_docs: Vec<&Document> = documents
+            .iter()
+            .filter(|d| d.category == *category)
+            .collect();
+
+        // Generate index content
+        let mut content = format!("# {}\n\n", category.to_string());
+
+        content.push_str(&self.get_category_description(category));
+        content.push_str("\n\n## Documents\n\n");
+
+        if category_docs.is_empty() {
+            content.push_str("No documents available yet.\n");
+        } else {
+            for doc in category_docs {
+                let filename = doc
+                    .file_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("");
+                content.push_str(&format!("- [{}]({})\n", doc.title, filename));
+            }
+        }
+
+        content.push('\n');
+
+        // Write index file
+        tokio::fs::write(&index_path, content)
+            .await
+            .map_err(|e| XzeError::filesystem(format!("Failed to write index: {}", e)))?;
+
+        info!("Generated index for {:?} at {:?}", category, index_path);
+        Ok(index_path)
+    }
+
+    /// Generate all index files
+    pub async fn generate_all_indexes(&self, documents: &[Document]) -> Result<Vec<PathBuf>> {
+        let mut index_paths = Vec::new();
+
+        for category in [
+            DiátaxisCategory::Tutorial,
+            DiátaxisCategory::HowTo,
+            DiátaxisCategory::Reference,
+            DiátaxisCategory::Explanation,
+        ] {
+            match self.generate_index(&category, documents).await {
+                Ok(path) => index_paths.push(path),
+                Err(e) => warn!("Failed to generate index for {:?}: {}", category, e),
+            }
+        }
+
+        Ok(index_paths)
+    }
+
+    /// Get description for a category
+    fn get_category_description(&self, category: &DiátaxisCategory) -> &str {
+        match category {
+            DiátaxisCategory::Tutorial => {
+                "Tutorials are learning-oriented lessons that guide you through \
+                learning a specific topic step by step."
+            }
+            DiátaxisCategory::HowTo => {
+                "How-to guides are goal-oriented recipes that help you solve \
+                specific problems and accomplish tasks."
+            }
+            DiátaxisCategory::Reference => {
+                "Reference documentation provides technical descriptions of the \
+                system, its APIs, and components."
+            }
+            DiátaxisCategory::Explanation => {
+                "Explanations are understanding-oriented discussions that clarify \
+                and illuminate particular topics."
+            }
+        }
+    }
+}
+
+/// Template context for rendering
+#[derive(Debug, Clone)]
+pub struct TemplateContext {
+    pub project_name: String,
+    pub project_language: String,
+    pub category: DiátaxisCategory,
+    pub structure: CodeStructure,
+    pub metadata: crate::repository::RepositoryMetadata,
+}
+
+/// Index generator for creating category indexes
+pub struct IndexGenerator {
+    config: GeneratorConfig,
+}
+
+impl IndexGenerator {
+    /// Create a new index generator
+    pub fn new(config: GeneratorConfig) -> Self {
+        Self { config }
+    }
+
+    /// Generate main documentation index
+    pub async fn generate_main_index(&self, documents: &[Document]) -> Result<PathBuf> {
+        let index_path = self.config.output_dir.join("README.md");
+
+        let mut content = String::from("# Documentation\n\n");
+        content.push_str(
+            "This documentation follows the Diátaxis framework, organizing content \
+            into four categories based on your needs:\n\n",
+        );
+
+        // Group by category
+        let mut by_category: HashMap<DiátaxisCategory, Vec<&Document>> = HashMap::new();
+        for doc in documents {
+            by_category
+                .entry(doc.category.clone())
+                .or_insert_with(Vec::new)
+                .push(doc);
+        }
+
+        // Generate sections for each category
+        for category in [
+            DiátaxisCategory::Tutorial,
+            DiátaxisCategory::HowTo,
+            DiátaxisCategory::Reference,
+            DiátaxisCategory::Explanation,
+        ] {
+            content.push_str(&format!("## {}\n\n", category));
+
+            let description = match category {
+                DiátaxisCategory::Tutorial => {
+                    "**Learning-oriented**: Step-by-step lessons to learn new concepts"
+                }
+                DiátaxisCategory::HowTo => {
+                    "**Goal-oriented**: Practical guides to solve specific problems"
+                }
+                DiátaxisCategory::Reference => {
+                    "**Information-oriented**: Technical specifications and API details"
+                }
+                DiátaxisCategory::Explanation => {
+                    "**Understanding-oriented**: Background and conceptual discussion"
+                }
+            };
+
+            content.push_str(&format!("{}\n\n", description));
+
+            if let Some(docs) = by_category.get(&category) {
+                for doc in docs {
+                    let relative_path = doc.file_path.to_str().unwrap_or("");
+                    content.push_str(&format!("- [{}]({})\n", doc.title, relative_path));
+                }
+            } else {
+                content.push_str("*No documents available yet*\n");
+            }
+
+            content.push_str("\n");
+        }
+
+        content.push_str("---\n\n*This documentation was automatically generated by XZe.*\n");
+
+        // Write main index
+        tokio::fs::write(&index_path, content)
+            .await
+            .map_err(|e| XzeError::filesystem(format!("Failed to write main index: {}", e)))?;
+
+        info!("Generated main documentation index at {:?}", index_path);
+        Ok(index_path)
     }
 }
 

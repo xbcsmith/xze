@@ -1,0 +1,484 @@
+# API Documentation
+
+{{#if project_name}}
+## {{project_name}} API
+{{/if}}
+
+{{#if project_description}}
+{{project_description}}
+{{/if}}
+
+---
+
+## Introduction
+
+This document provides comprehensive API documentation for all public interfaces, functions, and types available in this project.
+
+**API Version:** {{#if version}}{{version}}{{else}}1.0{{/if}}
+
+**Last Updated:** {{#if last_updated}}{{last_updated}}{{else}}{{analysis_date}}{{/if}}
+
+---
+
+## Getting Started
+
+### Installation
+
+{{#if installation_instructions}}
+{{installation_instructions}}
+{{else}}
+```{{language}}
+// Add installation instructions here
+```
+{{/if}}
+
+### Basic Usage
+
+{{#if basic_usage}}
+```{{language}}
+{{basic_usage}}
+```
+{{else}}
+```{{language}}
+// Example: Basic usage of the API
+// 1. Import required modules
+// 2. Initialize configuration
+// 3. Call API functions
+// 4. Handle responses
+```
+{{/if}}
+
+### Authentication
+
+{{#if authentication}}
+{{authentication}}
+{{else}}
+{{#if requires_auth}}
+This API requires authentication. Please refer to the configuration section for setup details.
+{{else}}
+No authentication required for basic usage.
+{{/if}}
+{{/if}}
+
+---
+
+## API Overview
+
+### Statistics
+
+- **Total Public Functions:** {{public_functions}}
+- **Total Public Types:** {{#if public_types}}{{public_types}}{{else}}{{types.length}}{{/if}}
+- **Modules:** {{modules.length}}
+- **Configuration Options:** {{configs.length}}
+
+### API Categories
+
+{{#if categories}}
+{{#each categories}}
+- **{{name}}**: {{description}}
+{{/each}}
+{{else}}
+The API is organized into the following areas:
+
+{{#if modules}}
+{{#each modules}}
+- **{{name}}** - {{#if documentation}}{{documentation}}{{else}}Core functionality{{/if}}
+{{/each}}
+{{/if}}
+{{/if}}
+
+---
+
+## Public Modules
+
+{{#each modules}}
+{{#if (eq visibility "Public")}}
+### {{name}}
+
+**Path:** `{{path}}`
+
+{{#if documentation}}
+{{documentation}}
+{{/if}}
+
+{{#if exports}}
+**Exports:**
+{{#each exports}}
+- `{{name}}` ({{type}})
+{{/each}}
+{{/if}}
+
+---
+
+{{/if}}
+{{/each}}
+
+---
+
+## Functions Reference
+
+{{#each functions}}
+{{#if (eq visibility "Public")}}
+### {{name}}
+
+**Signature:**
+
+```{{../language}}
+{{signature}}
+```
+
+{{#if documentation}}
+#### Description
+
+{{documentation}}
+{{/if}}
+
+{{#if parameters}}
+#### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+{{#each parameters}}
+| `{{name}}` | `{{type_annotation}}` | {{#if required}}Yes{{else}}No{{/if}} | {{#if default_value}}`{{default_value}}`{{else}}-{{/if}} | {{#if description}}{{description}}{{else}}-{{/if}} |
+{{/each}}
+{{/if}}
+
+{{#if return_type}}
+#### Returns
+
+**Type:** `{{return_type}}`
+
+{{#if return_description}}
+{{return_description}}
+{{/if}}
+{{/if}}
+
+{{#if errors}}
+#### Errors
+
+This function may return the following errors:
+
+{{#each errors}}
+- **{{code}}**: {{description}}
+{{/each}}
+{{/if}}
+
+{{#if is_async}}
+#### Async Behavior
+
+This is an asynchronous function. Use `await` or handle the returned Promise/Future appropriately.
+{{/if}}
+
+{{#if examples}}
+#### Examples
+
+{{#each examples}}
+**Example {{@index}}:**{{#if title}} {{title}}{{/if}}
+
+```{{../../language}}
+{{code}}
+```
+
+{{#if output}}
+**Output:**
+```
+{{output}}
+```
+{{/if}}
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{/each}}
+{{else}}
+#### Example
+
+```{{../language}}
+// Example usage of {{name}}
+{{#if example_usage}}
+{{example_usage}}
+{{else}}
+// TODO: Add usage example
+{{/if}}
+```
+{{/if}}
+
+{{#if notes}}
+#### Notes
+
+{{#each notes}}
+- {{this}}
+{{/each}}
+{{/if}}
+
+{{#if see_also}}
+#### See Also
+
+{{#each see_also}}
+- [`{{name}}`](#{{link}}){{#if description}} - {{description}}{{/if}}
+{{/each}}
+{{/if}}
+
+---
+
+{{/if}}
+{{/each}}
+
+---
+
+## Types Reference
+
+{{#each types}}
+{{#if (eq visibility "Public")}}
+### {{kind}} `{{name}}`
+
+{{#if documentation}}
+#### Description
+
+{{documentation}}
+{{/if}}
+
+{{#if fields}}
+#### Fields
+
+| Field | Type | Visibility | Description |
+|-------|------|------------|-------------|
+{{#each fields}}
+| `{{name}}` | `{{type_annotation}}` | {{#if visibility}}{{visibility}}{{else}}Public{{/if}} | {{#if documentation}}{{documentation}}{{else}}-{{/if}} |
+{{/each}}
+{{/if}}
+
+{{#if variants}}
+#### Variants
+
+{{#each variants}}
+##### `{{name}}`
+
+{{#if documentation}}
+{{documentation}}
+{{/if}}
+
+{{#if fields}}
+**Fields:**
+{{#each fields}}
+- `{{name}}`: `{{type_annotation}}`{{#if documentation}} - {{documentation}}{{/if}}
+{{/each}}
+{{/if}}
+
+{{/each}}
+{{/if}}
+
+{{#if methods}}
+#### Methods
+
+{{#each methods}}
+- **{{name}}**{{#if signature}}: `{{signature}}`{{/if}}{{#if documentation}} - {{documentation}}{{/if}}
+{{/each}}
+{{/if}}
+
+{{#if examples}}
+#### Examples
+
+{{#each examples}}
+```{{../../language}}
+{{code}}
+```
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{/each}}
+{{/if}}
+
+---
+
+{{/if}}
+{{/each}}
+
+---
+
+## Configuration
+
+{{#if configs}}
+This API uses the following configuration files:
+
+{{#each configs}}
+### {{path}}
+
+**Format:** {{format}}
+
+{{#if description}}
+{{description}}
+{{/if}}
+
+{{#if schema}}
+**Schema:**
+
+```{{format}}
+{{schema}}
+```
+{{/if}}
+
+{{#if options}}
+#### Configuration Options
+
+{{#each options}}
+- **{{name}}**: {{description}}{{#if type}} (Type: `{{type}}`){{/if}}{{#if default}} (Default: `{{default}}`){{/if}}
+{{/each}}
+{{/if}}
+
+{{/each}}
+{{else}}
+No configuration files required.
+{{/if}}
+
+---
+
+## Error Handling
+
+{{#if error_handling}}
+{{error_handling}}
+{{else}}
+### Error Types
+
+All API functions return results that should be checked for errors. Common error patterns:
+
+```{{language}}
+// Handle errors appropriately
+// Check return values
+// Use try-catch for exceptions
+// Log errors for debugging
+```
+
+### Common Errors
+
+- **Configuration Error**: Invalid or missing configuration
+- **Network Error**: Connection or communication failure
+- **Validation Error**: Invalid input parameters
+- **Runtime Error**: Unexpected condition during execution
+{{/if}}
+
+---
+
+## Rate Limits and Quotas
+
+{{#if rate_limits}}
+{{#each rate_limits}}
+- **{{name}}**: {{limit}} {{period}}{{#if description}} - {{description}}{{/if}}
+{{/each}}
+{{else}}
+No rate limits enforced for local usage.
+{{/if}}
+
+---
+
+## Best Practices
+
+{{#if best_practices}}
+{{#each best_practices}}
+### {{title}}
+
+{{description}}
+
+{{#if example}}
+```{{../language}}
+{{example}}
+```
+{{/if}}
+
+{{/each}}
+{{else}}
+### Resource Management
+
+- Always clean up resources when done
+- Handle errors gracefully
+- Use appropriate timeouts
+- Validate inputs before processing
+
+### Performance
+
+- Cache results when appropriate
+- Use batch operations for multiple items
+- Consider async operations for I/O
+- Monitor resource usage
+
+### Security
+
+- Validate all inputs
+- Use secure configurations
+- Keep dependencies updated
+- Follow principle of least privilege
+{{/if}}
+
+---
+
+## Migration Guide
+
+{{#if migration_guide}}
+{{migration_guide}}
+{{else}}
+{{#if previous_version}}
+### From {{previous_version}}
+
+Changes in this version:
+- Review the changelog for breaking changes
+- Update function calls to new signatures
+- Adjust configuration as needed
+{{/if}}
+{{/if}}
+
+---
+
+## Support and Resources
+
+### Documentation
+
+- **Tutorials**: Step-by-step learning guides
+- **How-To Guides**: Task-specific instructions
+- **Explanations**: Conceptual discussions
+- **API Reference**: This document
+
+### Getting Help
+
+{{#if support}}
+{{support}}
+{{else}}
+- Check the documentation for answers
+- Review code examples
+- Search existing issues
+- Consult the community forums
+{{/if}}
+
+### Related Resources
+
+{{#if resources}}
+{{#each resources}}
+- [{{title}}]({{url}}){{#if description}} - {{description}}{{/if}}
+{{/each}}
+{{/if}}
+
+---
+
+## Appendix
+
+### Glossary
+
+{{#if glossary}}
+{{#each glossary}}
+- **{{term}}**: {{definition}}
+{{/each}}
+{{/if}}
+
+### Changelog
+
+{{#if changelog}}
+{{changelog}}
+{{else}}
+See the project changelog for version history and updates.
+{{/if}}
+
+---
+
+*This API documentation was automatically generated. For the most current information, please refer to the source code and inline documentation.*

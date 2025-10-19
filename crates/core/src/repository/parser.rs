@@ -150,37 +150,34 @@ impl RustParser {
             return Ok(params);
         }
 
-        let params_str = &signature[start + 1..end];
-        if params_str.trim().is_empty() {
+        let param_str = &signature[start + 1..end];
+        if param_str.trim().is_empty() {
             return Ok(params);
         }
 
-        // Split by comma, but be careful about nested generics
-        let param_parts = self.split_rust_params(params_str);
+        // Split by comma, but respect nested generics
+        let param_parts = self.split_rust_params(param_str);
 
-        for param_part in param_parts {
-            let param_part = param_part.trim();
-            if param_part.is_empty() || param_part == "self" || param_part.starts_with("&self") {
+        for part in param_parts {
+            let part = part.trim();
+            if part.is_empty() || part == "&self" || part == "&mut self" || part == "self" {
                 continue;
             }
 
-            // Parse "name: type" or "name: type = default"
-            if let Some(colon_pos) = param_part.find(':') {
-                let name = param_part[..colon_pos].trim().to_string();
-                let rest = &param_part[colon_pos + 1..];
+            // Parse pattern: name: Type or mut name: Type
+            let mut param_str = part;
+            if param_str.starts_with("mut ") {
+                param_str = &param_str[4..];
+            }
 
-                let (type_annotation, default_value) = if let Some(eq_pos) = rest.find('=') {
-                    let type_part = rest[..eq_pos].trim();
-                    let default_part = rest[eq_pos + 1..].trim();
-                    (type_part.to_string(), Some(default_part.to_string()))
-                } else {
-                    (rest.trim().to_string(), None)
-                };
+            if let Some(colon_pos) = param_str.find(':') {
+                let name = param_str[..colon_pos].trim().to_string();
+                let type_annotation = param_str[colon_pos + 1..].trim().to_string();
 
                 params.push(Parameter {
                     name,
                     type_annotation,
-                    default_value,
+                    default_value: None,
                 });
             }
         }
@@ -189,103 +186,221 @@ impl RustParser {
     }
 
     fn split_rust_params(&self, params_str: &str) -> Vec<String> {
-        let mut parts = Vec::new();
+        let mut result = Vec::new();
         let mut current = String::new();
-        let mut depth = 0;
-        let mut in_string = false;
-        let mut escape_next = false;
+        let mut angle_depth = 0;
+        let mut paren_depth = 0;
 
         for ch in params_str.chars() {
-            if escape_next {
-                escape_next = false;
-                current.push(ch);
-                continue;
-            }
-
             match ch {
-                '\\' if in_string => {
-                    escape_next = true;
+                '<' => {
+                    angle_depth += 1;
                     current.push(ch);
                 }
-                '"' => {
-                    in_string = !in_string;
+                '>' => {
+                    angle_depth -= 1;
                     current.push(ch);
                 }
-                '<' | '(' | '[' if !in_string => {
-                    depth += 1;
+                '(' => {
+                    paren_depth += 1;
                     current.push(ch);
                 }
-                '>' | ')' | ']' if !in_string => {
-                    depth -= 1;
+                ')' => {
+                    paren_depth -= 1;
                     current.push(ch);
                 }
-                ',' if !in_string && depth == 0 => {
-                    parts.push(current.trim().to_string());
-                    current.clear();
+                ',' if angle_depth == 0 && paren_depth == 0 => {
+                    if !current.trim().is_empty() {
+                        result.push(current.trim().to_string());
+                        current.clear();
+                    }
                 }
-                _ => {
-                    current.push(ch);
-                }
+                _ => current.push(ch),
             }
         }
 
         if !current.trim().is_empty() {
-            parts.push(current.trim().to_string());
+            result.push(current.trim().to_string());
         }
 
-        parts
+        result
+    }
+
+    fn parse_rust_return_type(&self, signature: &str) -> Option<String> {
+        // Find return type after ->
+        if let Some(arrow_pos) = signature.find("->") {
+            let after_arrow = &signature[arrow_pos + 2..];
+            // Find the end of the return type (before where/{ )
+            let end_pos = after_arrow
+                .find("where")
+                .or_else(|| after_arrow.find('{'))
+                .unwrap_or(after_arrow.len());
+
+            let return_type = after_arrow[..end_pos].trim();
+            if !return_type.is_empty() {
+                return Some(return_type.to_string());
+            }
+        }
+        None
     }
 
     fn parse_rust_struct_fields(&self, content: &str, struct_name: &str) -> Result<Vec<Field>> {
-        let mut fields = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
-        let mut in_struct = false;
+        let mut fields = Vec::new();
+        let mut in_struct_body = false;
+        let mut found_struct = false;
         let mut brace_count = 0;
+        let mut current_doc = None;
 
-        for line in lines {
+        for line in lines.iter() {
             let trimmed = line.trim();
 
-            // Find struct definition
-            if trimmed.contains(&format!("struct {}", struct_name)) {
-                in_struct = true;
+            // Track documentation comments
+            if trimmed.starts_with("///") {
+                let doc = trimmed.trim_start_matches("///").trim();
+                current_doc = Some(match current_doc {
+                    Some(existing) => format!("{}\n{}", existing, doc),
+                    None => doc.to_string(),
+                });
+                continue;
+            }
+
+            // Find struct definition by name
+            if !found_struct && trimmed.contains(&format!("struct {}", struct_name)) {
+                found_struct = true;
                 if trimmed.contains('{') {
+                    in_struct_body = true;
                     brace_count += 1;
                 }
                 continue;
             }
 
-            if !in_struct {
+            if !found_struct {
                 continue;
             }
 
-            // Count braces to know when we're done with the struct
-            brace_count += trimmed.chars().filter(|&c| c == '{').count();
-            brace_count -= trimmed.chars().filter(|&c| c == '}').count();
-
-            if brace_count == 0 {
-                break;
+            // Find struct body
+            if !in_struct_body && trimmed.contains('{') {
+                in_struct_body = true;
+                brace_count += trimmed.matches('{').count();
+                continue;
             }
 
-            // Parse field: "pub field_name: FieldType,"
-            if trimmed.contains(':') && !trimmed.starts_with("//") {
-                let parts: Vec<&str> = trimmed.splitn(2, ':').collect();
-                if parts.len() == 2 {
-                    let field_name = parts[0].trim().trim_start_matches("pub").trim().to_string();
+            if in_struct_body {
+                brace_count += trimmed.matches('{').count();
+                brace_count -= trimmed.matches('}').count();
 
-                    let field_type = parts[1].trim().trim_end_matches(',').to_string();
+                if brace_count == 0 {
+                    break;
+                }
 
-                    if !field_name.is_empty() && !field_type.is_empty() {
-                        fields.push(Field {
-                            name: field_name,
-                            type_annotation: field_type,
-                            documentation: None, // TODO: Extract field documentation
-                        });
+                // Parse field: pub name: Type,
+                if trimmed.contains(':') && !trimmed.starts_with("//") {
+                    let field_line = trimmed.trim_end_matches(',');
+
+                    // Remove visibility modifiers
+                    let field_line = field_line
+                        .trim_start_matches("pub ")
+                        .trim_start_matches("pub(crate) ")
+                        .trim_start_matches("pub(super) ");
+
+                    if let Some(colon_pos) = field_line.find(':') {
+                        let name = field_line[..colon_pos].trim().to_string();
+                        let type_annotation = field_line[colon_pos + 1..].trim().to_string();
+
+                        if !name.is_empty() && !type_annotation.is_empty() {
+                            fields.push(Field {
+                                name,
+                                type_annotation,
+                                documentation: current_doc.take(),
+                            });
+                        }
                     }
+                } else if !trimmed.is_empty() && !trimmed.starts_with("//") {
+                    // Clear doc comment if we hit a non-field line
+                    current_doc = None;
                 }
             }
         }
 
         Ok(fields)
+    }
+
+    fn parse_rust_enum_variants(&self, content: &str, enum_name: &str) -> Result<Vec<Field>> {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut variants = Vec::new();
+        let mut in_enum_body = false;
+        let mut found_enum = false;
+        let mut brace_count = 0;
+        let mut current_doc = None;
+
+        for line in lines.iter() {
+            let trimmed = line.trim();
+
+            // Track documentation comments
+            if trimmed.starts_with("///") {
+                let doc = trimmed.trim_start_matches("///").trim();
+                current_doc = Some(match current_doc {
+                    Some(existing) => format!("{}\n{}", existing, doc),
+                    None => doc.to_string(),
+                });
+                continue;
+            }
+
+            // Find enum definition by name
+            if !found_enum && trimmed.contains(&format!("enum {}", enum_name)) {
+                found_enum = true;
+                if trimmed.contains('{') {
+                    in_enum_body = true;
+                    brace_count += 1;
+                }
+                continue;
+            }
+
+            if !found_enum {
+                continue;
+            }
+
+            if !in_enum_body && trimmed.contains('{') {
+                in_enum_body = true;
+                brace_count += trimmed.matches('{').count();
+                continue;
+            }
+
+            if in_enum_body {
+                brace_count += trimmed.matches('{').count();
+                brace_count -= trimmed.matches('}').count();
+
+                if brace_count == 0 {
+                    break;
+                }
+
+                if trimmed.is_empty() || trimmed.starts_with("//") {
+                    continue;
+                }
+
+                // Parse variant: VariantName or VariantName(Type) or VariantName { fields }
+                let variant_line = trimmed.trim_end_matches(',');
+
+                let variant_name = if let Some(paren_pos) = variant_line.find('(') {
+                    variant_line[..paren_pos].trim()
+                } else if let Some(brace_pos) = variant_line.find('{') {
+                    variant_line[..brace_pos].trim()
+                } else {
+                    variant_line.trim()
+                };
+
+                if !variant_name.is_empty() && variant_name.chars().next().unwrap().is_uppercase() {
+                    variants.push(Field {
+                        name: variant_name.to_string(),
+                        type_annotation: "variant".to_string(),
+                        documentation: current_doc.take(),
+                    });
+                }
+            }
+        }
+
+        Ok(variants)
     }
 }
 

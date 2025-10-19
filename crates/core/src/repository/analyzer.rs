@@ -3,8 +3,8 @@
 use crate::{
     error::{Result, XzeError},
     repository::{
-        CodeStructure, ConfigFile, ConfigFormat, Function, Module, TypeDefinition, TypeKind,
-        Visibility,
+        CodeStructure, ConfigFile, ConfigFormat, Field, Function, Module, Parameter,
+        TypeDefinition, TypeKind, Visibility,
     },
     types::ProgrammingLanguage,
 };
@@ -248,21 +248,166 @@ impl RustAnalyzer {
             let name_end = after_fn.find('(')?;
             let name = after_fn[..name_end].trim().to_string();
 
-            // Extract full signature (simplified)
-            let signature = line.trim().to_string();
+            // Extract full signature (may span multiple lines)
+            let signature = self.extract_full_signature(content, line_num);
+
+            // Parse parameters from signature
+            let parameters = self.parse_function_parameters(&signature);
+
+            // Parse return type
+            let return_type = self.parse_return_type(&signature);
 
             Some(Function {
                 name,
-                signature,
+                signature: signature.trim().to_string(),
                 documentation: Self::extract_rust_doc_comment(content, line_num),
-                parameters: Vec::new(), // TODO: Parse parameters
-                return_type: None,      // TODO: Parse return type
+                parameters,
+                return_type,
                 visibility,
                 is_async,
             })
         } else {
             None
         }
+    }
+
+    fn extract_full_signature(&self, content: &str, start_line: usize) -> String {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut signature = String::new();
+        let mut brace_count = 0;
+        let mut paren_count = 0;
+
+        for line in lines.iter().skip(start_line) {
+            let trimmed = line.trim();
+
+            paren_count += trimmed.matches('(').count() as i32;
+            paren_count -= trimmed.matches(')').count() as i32;
+
+            signature.push_str(trimmed);
+            signature.push(' ');
+
+            // Stop at opening brace or semicolon if parentheses are balanced
+            if paren_count == 0 && (trimmed.contains('{') || trimmed.ends_with(';')) {
+                break;
+            }
+        }
+
+        signature
+    }
+
+    fn parse_function_parameters(&self, signature: &str) -> Vec<Parameter> {
+        let mut params = Vec::new();
+
+        // Find parameter list between parentheses
+        let start = match signature.find('(') {
+            Some(pos) => pos,
+            None => return params,
+        };
+
+        let end = match signature.rfind(')') {
+            Some(pos) => pos,
+            None => return params,
+        };
+
+        if start >= end {
+            return params;
+        }
+
+        let param_str = &signature[start + 1..end];
+        if param_str.trim().is_empty() {
+            return params;
+        }
+
+        // Split by comma, respecting nested generics and parentheses
+        let param_parts = self.split_parameters(param_str);
+
+        for part in param_parts {
+            let part = part.trim();
+            if part.is_empty() || part == "&self" || part == "&mut self" || part == "self" {
+                continue;
+            }
+
+            // Remove 'mut' keyword if present
+            let mut param_str = part;
+            if param_str.starts_with("mut ") {
+                param_str = &param_str[4..];
+            }
+
+            // Parse pattern: name: Type
+            if let Some(colon_pos) = param_str.find(':') {
+                let name = param_str[..colon_pos].trim().to_string();
+                let type_annotation = param_str[colon_pos + 1..].trim().to_string();
+
+                params.push(Parameter {
+                    name,
+                    type_annotation,
+                    default_value: None,
+                });
+            }
+        }
+
+        params
+    }
+
+    fn split_parameters(&self, params_str: &str) -> Vec<String> {
+        let mut result = Vec::new();
+        let mut current = String::new();
+        let mut angle_depth = 0;
+        let mut paren_depth = 0;
+
+        for ch in params_str.chars() {
+            match ch {
+                '<' => {
+                    angle_depth += 1;
+                    current.push(ch);
+                }
+                '>' => {
+                    angle_depth -= 1;
+                    current.push(ch);
+                }
+                '(' => {
+                    paren_depth += 1;
+                    current.push(ch);
+                }
+                ')' => {
+                    paren_depth -= 1;
+                    current.push(ch);
+                }
+                ',' if angle_depth == 0 && paren_depth == 0 => {
+                    if !current.trim().is_empty() {
+                        result.push(current.trim().to_string());
+                        current.clear();
+                    }
+                }
+                _ => current.push(ch),
+            }
+        }
+
+        if !current.trim().is_empty() {
+            result.push(current.trim().to_string());
+        }
+
+        result
+    }
+
+    fn parse_return_type(&self, signature: &str) -> Option<String> {
+        // Find return type after ->
+        if let Some(arrow_pos) = signature.find("->") {
+            let after_arrow = &signature[arrow_pos + 2..];
+
+            // Find the end of the return type (before where/{ or end of string)
+            let end_pos = after_arrow
+                .find("where")
+                .or_else(|| after_arrow.find('{'))
+                .or_else(|| after_arrow.find(';'))
+                .unwrap_or(after_arrow.len());
+
+            let return_type = after_arrow[..end_pos].trim();
+            if !return_type.is_empty() {
+                return Some(return_type.to_string());
+            }
+        }
+        None
     }
 
     fn extract_type_definition(
@@ -299,11 +444,14 @@ impl RustAnalyzer {
         let parts: Vec<&str> = line.split_whitespace().collect();
         let name = parts.get(1)?.trim_end_matches(['{', ';']).to_string();
 
+        // Parse struct fields
+        let fields = self.parse_struct_fields(content, line_num);
+
         Some(TypeDefinition {
             name,
             kind: TypeKind::Struct,
             documentation: Self::extract_rust_doc_comment(content, line_num),
-            fields: Vec::new(), // TODO: Parse fields
+            fields,
             visibility,
         })
     }
@@ -318,11 +466,14 @@ impl RustAnalyzer {
         let parts: Vec<&str> = line.split_whitespace().collect();
         let name = parts.get(1)?.trim_end_matches(['{', ';']).to_string();
 
+        // Parse enum variants
+        let fields = self.parse_enum_variants(content, line_num);
+
         Some(TypeDefinition {
             name,
             kind: TypeKind::Enum,
             documentation: Self::extract_rust_doc_comment(content, line_num),
-            fields: Vec::new(), // TODO: Parse variants
+            fields,
             visibility,
         })
     }
@@ -344,6 +495,143 @@ impl RustAnalyzer {
             fields: Vec::new(),
             visibility,
         })
+    }
+
+    fn parse_struct_fields(&self, content: &str, start_line: usize) -> Vec<Field> {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut fields = Vec::new();
+
+        if start_line >= lines.len() {
+            return fields;
+        }
+
+        let mut in_struct_body = false;
+        let mut brace_count = 0;
+        let mut current_doc = None;
+
+        for (idx, line) in lines.iter().enumerate().skip(start_line) {
+            let trimmed = line.trim();
+
+            // Track documentation comments
+            if trimmed.starts_with("///") {
+                let doc = trimmed.trim_start_matches("///").trim();
+                current_doc = Some(match current_doc {
+                    Some(existing) => format!("{}\n{}", existing, doc),
+                    None => doc.to_string(),
+                });
+                continue;
+            }
+
+            // Find struct body
+            if trimmed.contains('{') {
+                in_struct_body = true;
+                brace_count += trimmed.matches('{').count();
+            }
+
+            if trimmed.contains('}') {
+                brace_count -= trimmed.matches('}').count();
+                if brace_count == 0 {
+                    break;
+                }
+            }
+
+            if !in_struct_body {
+                continue;
+            }
+
+            // Parse field: pub name: Type,
+            if trimmed.contains(':') && !trimmed.starts_with("//") {
+                let field_line = trimmed.trim_end_matches(',');
+
+                // Remove visibility modifiers
+                let field_line = field_line
+                    .trim_start_matches("pub ")
+                    .trim_start_matches("pub(crate) ")
+                    .trim_start_matches("pub(super) ");
+
+                if let Some(colon_pos) = field_line.find(':') {
+                    let name = field_line[..colon_pos].trim().to_string();
+                    let type_annotation = field_line[colon_pos + 1..].trim().to_string();
+
+                    if !name.is_empty() && !type_annotation.is_empty() {
+                        fields.push(Field {
+                            name,
+                            type_annotation,
+                            documentation: current_doc.take(),
+                        });
+                    }
+                }
+            } else if !trimmed.is_empty() && !trimmed.starts_with("//") {
+                // Clear doc comment if we hit a non-field line
+                current_doc = None;
+            }
+        }
+
+        fields
+    }
+
+    fn parse_enum_variants(&self, content: &str, start_line: usize) -> Vec<Field> {
+        let lines: Vec<&str> = content.lines().collect();
+        let mut variants = Vec::new();
+
+        if start_line >= lines.len() {
+            return variants;
+        }
+
+        let mut in_enum_body = false;
+        let mut brace_count = 0;
+        let mut current_doc = None;
+
+        for line in lines.iter().skip(start_line) {
+            let trimmed = line.trim();
+
+            // Track documentation comments
+            if trimmed.starts_with("///") {
+                let doc = trimmed.trim_start_matches("///").trim();
+                current_doc = Some(match current_doc {
+                    Some(existing) => format!("{}\n{}", existing, doc),
+                    None => doc.to_string(),
+                });
+                continue;
+            }
+
+            if trimmed.contains('{') {
+                in_enum_body = true;
+                brace_count += trimmed.matches('{').count();
+            }
+
+            if trimmed.contains('}') {
+                brace_count -= trimmed.matches('}').count();
+                if brace_count == 0 {
+                    break;
+                }
+            }
+
+            if !in_enum_body || trimmed.is_empty() || trimmed.starts_with("//") {
+                continue;
+            }
+
+            // Parse variant: VariantName or VariantName(Type) or VariantName { fields }
+            let variant_line = trimmed.trim_end_matches(',');
+
+            let variant_name = if let Some(paren_pos) = variant_line.find('(') {
+                variant_line[..paren_pos].trim()
+            } else if let Some(brace_pos) = variant_line.find('{') {
+                variant_line[..brace_pos].trim()
+            } else {
+                variant_line.trim()
+            };
+
+            if !variant_name.is_empty() && variant_name.chars().next().unwrap().is_uppercase() {
+                variants.push(Field {
+                    name: variant_name.to_string(),
+                    type_annotation: "variant".to_string(),
+                    documentation: current_doc.take(),
+                });
+            }
+        }
+
+        variants
     }
 
     fn parse_cargo_files(&self, repo_path: &Path, structure: &mut CodeStructure) -> Result<()> {
