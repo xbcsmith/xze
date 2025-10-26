@@ -5,8 +5,11 @@
 
 use crate::kb::categorizer::{CategorizedFiles, FileCategorizer};
 use crate::kb::error::{KbError, Result};
-use crate::kb::store::KbStore;
+use crate::kb::hash;
+use crate::kb::store::{DocumentChunk, KbStore};
 use sqlx::PgPool;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -233,6 +236,9 @@ impl IncrementalLoader {
         let current_files = FileCategorizer::discover_files_with_hashes(paths).await?;
         info!("Discovered {} files", current_files.len());
 
+        // Store hashes for later use
+        let file_hashes: HashMap<String, String> = current_files.clone();
+
         // Phase 2: Query existing files from database
         let existing_files = if self.config.force {
             // In force mode, treat all files as new
@@ -264,7 +270,9 @@ impl IncrementalLoader {
             // Process add files (new files)
             if !categorized.add.is_empty() {
                 info!("Processing {} new files...", categorized.add.len());
-                let chunks = self.process_add_files(&categorized.add).await?;
+                let chunks = self
+                    .process_add_files(&categorized.add, &file_hashes)
+                    .await?;
                 stats.chunks_inserted += chunks;
                 info!("Inserted {} chunks for new files", chunks);
             }
@@ -272,7 +280,9 @@ impl IncrementalLoader {
             // Process update files (only if update flag is set)
             if self.config.update && !categorized.update.is_empty() {
                 info!("Processing {} modified files...", categorized.update.len());
-                let chunks = self.process_update_files(&categorized.update).await?;
+                let chunks = self
+                    .process_update_files(&categorized.update, &file_hashes)
+                    .await?;
                 stats.chunks_inserted += chunks;
                 info!("Updated {} chunks for modified files", chunks);
             } else if !categorized.update.is_empty() && !self.config.update {
@@ -304,60 +314,109 @@ impl IncrementalLoader {
 
     /// Process files to be added
     ///
-    /// Stub implementation for Phase 3 - actual chunk generation
-    /// and insertion will be implemented in Phase 4.
+    /// Generates chunks for new files and inserts them into the database.
     ///
     /// # Arguments
     ///
     /// * `files` - List of file paths to add
+    /// * `file_hashes` - Map of file paths to their SHA-256 hashes
     ///
     /// # Returns
     ///
-    /// Returns the number of chunks inserted
+    /// Returns the total number of chunks inserted
     ///
     /// # Errors
     ///
-    /// Returns `KbError` if processing fails
-    async fn process_add_files(&self, files: &[String]) -> Result<usize> {
+    /// Returns `KbError` if chunk generation or insertion fails
+    async fn process_add_files(
+        &self,
+        files: &[String],
+        file_hashes: &HashMap<String, String>,
+    ) -> Result<usize> {
         debug!("Processing {} files to add", files.len());
 
-        // TODO Phase 4: Implement actual chunk generation and insertion
-        // For now, just log that we would process these files
-        for file in files {
-            debug!("  Would add: {}", file);
+        let mut total_chunks = 0;
+
+        for file_str in files {
+            let file_path = PathBuf::from(file_str);
+            let hash = file_hashes
+                .get(file_str)
+                .ok_or_else(|| KbError::loader(format!("Hash not found for file: {}", file_str)))?;
+
+            info!("Adding file: {}", file_str);
+
+            // Generate chunks for the file
+            let chunks = self.generate_chunks(&file_path).await?;
+
+            if chunks.is_empty() {
+                warn!("No chunks generated for file: {}", file_str);
+                continue;
+            }
+
+            // Insert chunks into database
+            self.store
+                .insert_file_chunks(&file_path, hash, &chunks)
+                .await?;
+
+            total_chunks += chunks.len();
+            info!("Inserted {} chunks for file: {}", chunks.len(), file_str);
         }
 
-        // Return 0 chunks for now (Phase 4 will implement actual insertion)
-        Ok(0)
+        Ok(total_chunks)
     }
 
     /// Process files to be updated
     ///
-    /// Stub implementation for Phase 3 - actual implementation
-    /// will be completed in Phase 4.
+    /// Generates chunks for modified files and updates them in the database
+    /// atomically within a transaction.
     ///
     /// # Arguments
     ///
     /// * `files` - List of file paths to update
+    /// * `file_hashes` - Map of file paths to their new SHA-256 hashes
     ///
     /// # Returns
     ///
-    /// Returns the number of chunks inserted
+    /// Returns the total number of chunks inserted
     ///
     /// # Errors
     ///
-    /// Returns `KbError` if processing fails
-    async fn process_update_files(&self, files: &[String]) -> Result<usize> {
+    /// Returns `KbError` if chunk generation or update fails
+    async fn process_update_files(
+        &self,
+        files: &[String],
+        file_hashes: &HashMap<String, String>,
+    ) -> Result<usize> {
         debug!("Processing {} files to update", files.len());
 
-        // TODO Phase 4: Implement actual chunk generation and update
-        // For now, just log that we would process these files
-        for file in files {
-            debug!("  Would update: {}", file);
+        let mut total_chunks = 0;
+
+        for file_str in files {
+            let file_path = PathBuf::from(file_str);
+            let hash = file_hashes
+                .get(file_str)
+                .ok_or_else(|| KbError::loader(format!("Hash not found for file: {}", file_str)))?;
+
+            info!("Updating file: {}", file_str);
+
+            // Generate new chunks for the file
+            let chunks = self.generate_chunks(&file_path).await?;
+
+            if chunks.is_empty() {
+                warn!("No chunks generated for file: {}", file_str);
+                continue;
+            }
+
+            // Update chunks atomically in transaction
+            self.store
+                .update_file_chunks(&file_path, hash, &chunks)
+                .await?;
+
+            total_chunks += chunks.len();
+            info!("Updated {} chunks for file: {}", chunks.len(), file_str);
         }
 
-        // Return 0 chunks for now (Phase 4 will implement actual update)
-        Ok(0)
+        Ok(total_chunks)
     }
 
     /// Process files to be deleted
@@ -387,6 +446,134 @@ impl IncrementalLoader {
 
         // Return 0 chunks for now (Phase 5 will implement actual cleanup)
         Ok(0)
+    }
+
+    /// Generate document chunks from a file
+    ///
+    /// This is a placeholder implementation that creates basic chunks.
+    /// Future phases will integrate with the existing AIDocumentationGenerator
+    /// or more sophisticated chunking logic.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - Path to the file to chunk
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of DocumentChunk instances
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError` if file cannot be read or chunked
+    async fn generate_chunks(&self, file_path: &Path) -> Result<Vec<DocumentChunk>> {
+        debug!("Generating chunks for file: {}", file_path.display());
+
+        // Read file content
+        let content = tokio::fs::read_to_string(file_path).await.map_err(|e| {
+            KbError::loader(format!(
+                "Failed to read file {}: {}",
+                file_path.display(),
+                e
+            ))
+        })?;
+
+        // Skip empty files
+        if content.trim().is_empty() {
+            debug!("Skipping empty file: {}", file_path.display());
+            return Ok(Vec::new());
+        }
+
+        // Simple chunking strategy: split by paragraphs (double newline)
+        // This is a placeholder - future implementation will use semantic chunking
+        let paragraphs: Vec<&str> = content
+            .split("\n\n")
+            .filter(|p| !p.trim().is_empty())
+            .collect();
+
+        if paragraphs.is_empty() {
+            // Fall back to treating entire content as one chunk
+            return Ok(vec![self.create_chunk(0, &content).await?]);
+        }
+
+        let mut chunks = Vec::new();
+        for (idx, paragraph) in paragraphs.iter().enumerate() {
+            let chunk = self.create_chunk(idx, paragraph).await?;
+            chunks.push(chunk);
+        }
+
+        debug!(
+            "Generated {} chunks for file: {}",
+            chunks.len(),
+            file_path.display()
+        );
+
+        Ok(chunks)
+    }
+
+    /// Create a single document chunk with embedding
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - Chunk index within the document
+    /// * `content` - Text content for the chunk
+    ///
+    /// # Returns
+    ///
+    /// Returns a DocumentChunk instance
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError` if embedding generation fails
+    async fn create_chunk(&self, index: usize, content: &str) -> Result<DocumentChunk> {
+        let chunk_id = format!("chunk_{}", index);
+
+        // Placeholder embedding - in production, this would call an AI service
+        // to generate semantic embeddings. For now, use a simple hash-based approach.
+        let embedding = self.generate_placeholder_embedding(content);
+
+        // Create metadata
+        let metadata = serde_json::json!({
+            "chunk_index": index,
+            "content_length": content.len(),
+            "created_at": chrono::Utc::now().to_rfc3339(),
+        });
+
+        Ok(DocumentChunk::new(
+            chunk_id,
+            content.to_string(),
+            embedding,
+            metadata,
+        ))
+    }
+
+    /// Generate a placeholder embedding vector
+    ///
+    /// This creates a deterministic embedding based on content hash.
+    /// In production, this should be replaced with actual AI-generated embeddings.
+    ///
+    /// # Arguments
+    ///
+    /// * `content` - Text content to generate embedding for
+    ///
+    /// # Returns
+    ///
+    /// Returns a 384-dimensional vector (common embedding size)
+    fn generate_placeholder_embedding(&self, content: &str) -> Vec<f32> {
+        // Use content hash to generate deterministic embedding
+        let content_hash = hash::calculate_content_hash(content);
+
+        // Convert hash bytes to f32 values
+        // This is a placeholder - real embeddings would come from an AI model
+        let hash_bytes = content_hash.as_bytes();
+        let mut embedding = Vec::with_capacity(384);
+
+        for i in 0..384 {
+            let byte_index = i % hash_bytes.len();
+            let value = hash_bytes[byte_index] as f32 / 255.0;
+            embedding.push(value);
+        }
+
+        embedding
     }
 
     /// Log dry run summary
