@@ -10,6 +10,7 @@ pub mod config;
 pub mod documentation;
 pub mod error;
 pub mod git;
+pub mod kb;
 pub mod pipeline;
 pub mod repository;
 pub mod types;
@@ -22,6 +23,10 @@ pub use change_detector::{
 };
 pub use config::XzeConfig;
 pub use error::{Result, XzeError};
+pub use kb::{
+    calculate_content_hash, calculate_file_hash, CategorizedFiles, FileCategorizer, FileCategory,
+    IncrementalLoader, KbError, KbStore, LoadStats, LoaderConfig,
+};
 pub use repository::{CodeStructure, Repository, RepositoryManager};
 pub use types::{
     DiátaxisCategory, JobId, JobStatus, OperationMode, ProgrammingLanguage, RepositoryId,

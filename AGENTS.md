@@ -160,16 +160,12 @@ cargo test --all-features
 
 **Expected Results:**
 
-<!-- markdownlint-disable MD040 -->
-
-```
+```text
 ✅ cargo fmt         → No output (all files formatted)
 ✅ cargo check       → "Finished" with 0 errors
 ✅ cargo clippy      → "Finished" with 0 warnings
 ✅ cargo test        → "test result: ok. X passed; 0 failed"
 ```
-
-<!-- markdownlint-enable MD040 -->
 
 **IF ANY FAIL**: Stop immediately and fix before proceeding.
 
@@ -257,11 +253,6 @@ Test coverage and validation results
 
 - Link to architecture docs
 - Link to related features
-
-<!-- markdownlint-disable MD040 -->
-
-`````
-<!-- markdownlint-enable MD040 -->
 
 ---
 
@@ -367,7 +358,8 @@ Test coverage and validation results
    pub fn function(param: Type) -> Result<ReturnType, Error> {
        // Implementation
    }
-`````
+
+   ````
 
 2. **Write Tests (MANDATORY)**
 
@@ -488,11 +480,6 @@ fn main() {
 
 - Architecture: `docs/explanations/architecture.md`
 - API Reference: `docs/reference/api.md`
-
-<!-- markdownlint-disable MD040 -->
-
-````
-<!-- markdownlint-enable MD040 -->
 
 #### Phase 4: Validation (CRITICAL)
 
@@ -653,15 +640,14 @@ mod tests {
 **YOU MUST use this format:**
 
 ```text
-pr-{jira-issue}
+pr-<feat>-<issue>
 ```
 
 **Examples:**
 
-<!-- markdownlint-disable MD040 -->
-```
+```text
 ✅ CORRECT:
-   pr-cpipe-1234
+   pr-semantic-chunking-1234
    pr-xze-5678
    pr-proj-9012
 
@@ -671,7 +657,6 @@ pr-{jira-issue}
    cpipe-1234           (missing pr- prefix)
    pr_cpipe_1234        (underscore instead of dash)
 ```
-<!-- markdownlint-enable MD040 -->
 
 ### Commit Messages (MANDATORY FORMAT)
 
@@ -707,8 +692,7 @@ pr-{jira-issue}
 
 **Examples:**
 
-<!-- markdownlint-disable MD040 -->
-```
+```text
 ✅ CORRECT:
 feat(auth): add JWT token refresh endpoint (CPIPE-1234)
 fix(api): handle edge case in event validation (CPIPE-5678)
@@ -728,7 +712,6 @@ feat: add JWT (CPIPE-1234)                        # Missing scope
 add jwt refresh (CPIPE-1234)                      # No type
 feat(auth): add JWT token refresh feature that allows users to... (CPIPE-1234)  # Too long
 ```
-<!-- markdownlint-enable MD040 -->
 
 ---
 
@@ -787,8 +770,7 @@ feat(auth): add JWT token refresh feature that allows users to... (CPIPE-1234)  
 
 ### Decision Tree: Where to Put Documentation?
 
-<!-- markdownlint-disable MD040 -->
-```
+```text
 Is it a step-by-step tutorial?
 ├─ YES → docs/tutorials/
 └─ NO
@@ -801,7 +783,6 @@ Is it a step-by-step tutorial?
    │     │     └─ Is it reference material?
    │     │        └─ YES → docs/reference/
 ```
-<!-- markdownlint-enable MD040 -->
 
 ---
 
@@ -1111,7 +1092,7 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ### Git
 
-- [ ] Branch name follows `pr-{jira-issue}` format (lowercase)
+- [ ] Branch name follows `pr-<feat>-<issue>` format (lowercase)
 - [ ] Commit message follows conventional commits
 - [ ] Commit message includes JIRA issue in uppercase
 - [ ] Commit message first line ≤72 characters
@@ -1201,15 +1182,13 @@ Exception: README.md ONLY
 
 ### Rule 3: Quality Checks
 
-<!-- markdownlint-disable MD040 -->
-```
+```text
 All four cargo commands MUST pass before claiming done:
 - cargo fmt --all
 - cargo check --all-targets --all-features
 - cargo clippy --all-targets --all-features -- -D warnings
 - cargo test --all-features
 ```
-<!-- markdownlint-enable MD040 -->
 
 ---
 
@@ -1217,9 +1196,8 @@ All four cargo commands MUST pass before claiming done:
 
 **FOLLOW THIS SEQUENCE FOR EVERY TASK:**
 
-<!-- markdownlint-disable MD040 -->
-```
-1. Create branch: pr-{jira-issue}
+```text
+1. Create branch: pr-feat-issue
 2. Implement code with /// doc comments
 3. Add tests (>80% coverage)
 4. Run: cargo fmt --all
@@ -1230,6 +1208,7 @@ All four cargo commands MUST pass before claiming done:
 9. Commit with proper format: <type>(<scope>): <description> (JIRA-ISSUE)
 10. Verify: All checklist items above are checked
 ```
+
 <!-- markdownlint-enable MD040 -->
 
 **IF YOU FOLLOW THIS WORKFLOW, YOUR CODE WILL BE ACCEPTED.**
@@ -1245,4 +1224,3 @@ This file is continuously updated as new patterns emerge. Last updated: 2024
 **For AI Agents**: You are a master Rust developer. Follow these rules
 precisely. Put all implementation summaries in `docs/explanations/` with
 lowercase filenames.
-````
