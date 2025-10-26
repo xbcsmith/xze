@@ -65,6 +65,16 @@ pub struct LoadArgs {
     /// Dry run mode: show what would be done without making changes
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Force full reload: ignore existing state and reload all files
+    ///
+    /// This mode treats all files as new, regardless of whether they
+    /// exist in the database. Use this to rebuild the knowledge base
+    /// from scratch without clearing the database first.
+    ///
+    /// Note: Cannot be used with --resume or --update flags.
+    #[arg(short, long)]
+    pub force: bool,
 }
 
 impl LoadArgs {
@@ -80,6 +90,7 @@ impl LoadArgs {
     /// - No paths are provided
     /// - Database URL is not set
     /// - Paths don't exist
+    /// - Conflicting flags are used (e.g., --force with --resume or --update)
     pub fn validate(&self) -> Result<()> {
         if self.paths.is_empty() {
             return Err(xze_core::XzeError::validation(
@@ -91,6 +102,23 @@ impl LoadArgs {
             return Err(xze_core::XzeError::validation(
                 "Database URL must be provided via --database-url or DATABASE_URL environment variable",
             ));
+        }
+
+        // Check for conflicting flags
+        if self.force && self.resume {
+            return Err(xze_core::XzeError::validation(
+                "Cannot use --force and --resume together. Use --force for full reload or --resume to skip unchanged files.",
+            ));
+        }
+
+        if self.force && self.update {
+            return Err(xze_core::XzeError::validation(
+                "Cannot use --force and --update together. Force mode implies a full reload of all files.",
+            ));
+        }
+
+        if self.resume && !self.update && !self.cleanup {
+            info!("Using --resume without --update or --cleanup will only add new files");
         }
 
         // Verify paths exist
@@ -125,7 +153,7 @@ impl CliCommand for LoadArgs {
             dry_run: self.dry_run,
             update: self.update,
             cleanup: self.cleanup,
-            force: false,
+            force: self.force,
         };
 
         info!("Configuration:");
@@ -195,6 +223,7 @@ mod tests {
             cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         let result = args.validate();
@@ -210,6 +239,7 @@ mod tests {
             cleanup: false,
             database_url: String::new(),
             dry_run: false,
+            force: false,
         };
 
         let result = args.validate();
@@ -225,6 +255,7 @@ mod tests {
             cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         let result = args.validate();
@@ -242,6 +273,7 @@ mod tests {
                 cleanup: false,
                 database_url: "postgres://localhost/test".to_string(),
                 dry_run: false,
+                force: false,
             };
 
             let result = args.validate();
@@ -258,6 +290,7 @@ mod tests {
             cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         let paths = args.paths_as_strings();
@@ -273,6 +306,7 @@ mod tests {
             cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         assert_eq!(args.name(), "load");
@@ -287,6 +321,7 @@ mod tests {
             cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         let result = CliCommand::validate(&args);
@@ -302,6 +337,7 @@ mod tests {
             cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         assert!(args.update);
@@ -316,6 +352,7 @@ mod tests {
             cleanup: true,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         assert!(args.cleanup);
@@ -330,9 +367,57 @@ mod tests {
             cleanup: true,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
+            force: false,
         };
 
         assert!(args.update);
         assert!(args.cleanup);
+    }
+
+    #[test]
+    fn test_load_args_with_force_flag() {
+        let args = LoadArgs {
+            paths: vec![PathBuf::from("/tmp")],
+            resume: false,
+            update: false,
+            cleanup: false,
+            database_url: "postgres://localhost/test".to_string(),
+            dry_run: false,
+            force: true,
+        };
+
+        assert!(args.force);
+    }
+
+    #[test]
+    fn test_load_args_validate_force_and_resume_conflict() {
+        let args = LoadArgs {
+            paths: vec![PathBuf::from("/tmp")],
+            resume: true,
+            update: false,
+            cleanup: false,
+            database_url: "postgres://localhost/test".to_string(),
+            dry_run: false,
+            force: true,
+        };
+
+        let result = args.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_args_validate_force_and_update_conflict() {
+        let args = LoadArgs {
+            paths: vec![PathBuf::from("/tmp")],
+            resume: false,
+            update: true,
+            cleanup: false,
+            database_url: "postgres://localhost/test".to_string(),
+            dry_run: false,
+            force: true,
+        };
+
+        let result = args.validate();
+        assert!(result.is_err());
     }
 }

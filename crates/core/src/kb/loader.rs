@@ -226,10 +226,7 @@ impl IncrementalLoader {
         let start = Instant::now();
         let mut stats = LoadStats::new();
 
-        info!("Starting incremental load");
-        info!("  Mode: {}", self.config.mode_description());
-        info!("  Paths: {:?}", paths);
-        info!("  Dry run: {}", self.config.dry_run);
+        self.log_mode(paths);
 
         // Phase 1: Discover files with hashes
         debug!("Discovering files and calculating hashes...");
@@ -307,9 +304,152 @@ impl IncrementalLoader {
         }
 
         stats.duration_secs = start.elapsed().as_secs_f64();
-        stats.log_summary();
+
+        self.log_completion(&stats);
 
         Ok(stats)
+    }
+
+    /// Log the current operation mode and configuration
+    ///
+    /// Provides clear information about what mode is active and what
+    /// paths are being processed.
+    ///
+    /// # Arguments
+    ///
+    /// * `paths` - Paths being processed
+    fn log_mode(&self, paths: &[String]) {
+        info!("=== Knowledge Base Load Operation ===");
+        info!("Mode: {}", self.config.mode_description());
+
+        if self.config.force {
+            info!("  -> Force mode: All files will be reprocessed");
+        } else if self.config.resume {
+            info!("  -> Resume mode: Unchanged files will be skipped");
+        } else if self.config.update {
+            info!("  -> Update mode: Modified files will be updated");
+        } else {
+            info!("  -> Full load: New files will be added");
+        }
+
+        if self.config.cleanup {
+            info!("  -> Cleanup enabled: Deleted files will be removed");
+        }
+
+        if self.config.dry_run {
+            info!("  -> DRY RUN: No changes will be made to database");
+        }
+
+        info!("Paths to process: {}", paths.len());
+        for (i, path) in paths.iter().enumerate() {
+            info!("  [{}] {}", i + 1, path);
+        }
+        info!("=====================================");
+    }
+
+    /// Log completion summary with detailed statistics
+    ///
+    /// Provides a comprehensive summary of the operation results including
+    /// file counts, chunk counts, and operation duration.
+    ///
+    /// # Arguments
+    ///
+    /// * `stats` - Load statistics from the operation
+    fn log_completion(&self, stats: &LoadStats) {
+        info!("=== Load Operation Complete ===");
+
+        if self.config.dry_run {
+            info!("DRY RUN - No changes were made");
+            info!("");
+            info!("Summary of what would be done:");
+        } else {
+            info!("Summary:");
+        }
+
+        info!("  Duration:         {:.2}s", stats.duration_secs);
+        info!("  Files discovered: {}", stats.total_files());
+        info!("");
+        info!("  Files skipped:    {} (unchanged)", stats.files_skipped);
+        info!("  Files added:      {} (new)", stats.files_added);
+        info!("  Files updated:    {} (modified)", stats.files_updated);
+        info!("  Files deleted:    {} (removed)", stats.files_deleted);
+        info!("");
+        info!("  Chunks inserted:  {}", stats.chunks_inserted);
+        info!("  Chunks deleted:   {}", stats.chunks_deleted);
+        info!(
+            "  Net change:       {}",
+            stats.chunks_inserted as i64 - stats.chunks_deleted as i64
+        );
+
+        if stats.files_to_process() == 0 && stats.files_skipped > 0 {
+            info!("");
+            info!("All files are up to date - nothing to do!");
+        }
+
+        info!("==============================");
+    }
+
+    /// Log dry run summary showing what would be done
+    ///
+    /// Provides detailed information about actions that would be taken
+    /// if not in dry-run mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `categorized` - Categorized files from discovery
+    fn log_dry_run_summary(&self, categorized: &CategorizedFiles) {
+        info!("=== Dry Run Summary ===");
+
+        if !categorized.add.is_empty() {
+            info!("Would ADD {} new files:", categorized.add.len());
+            for file in categorized.add.iter().take(5) {
+                info!("  + {}", file);
+            }
+            if categorized.add.len() > 5 {
+                info!("  ... and {} more", categorized.add.len() - 5);
+            }
+            info!("");
+        }
+
+        if !categorized.update.is_empty() && self.config.update {
+            info!("Would UPDATE {} modified files:", categorized.update.len());
+            for file in categorized.update.iter().take(5) {
+                info!("  ~ {}", file);
+            }
+            if categorized.update.len() > 5 {
+                info!("  ... and {} more", categorized.update.len() - 5);
+            }
+            info!("");
+        } else if !categorized.update.is_empty() {
+            info!(
+                "Would SKIP {} modified files (--update not set)",
+                categorized.update.len()
+            );
+            info!("");
+        }
+
+        if !categorized.delete.is_empty() && self.config.cleanup {
+            info!("Would DELETE {} removed files:", categorized.delete.len());
+            for file in categorized.delete.iter().take(5) {
+                info!("  - {}", file);
+            }
+            if categorized.delete.len() > 5 {
+                info!("  ... and {} more", categorized.delete.len() - 5);
+            }
+            info!("");
+        } else if !categorized.delete.is_empty() {
+            info!(
+                "Would SKIP {} deleted files (--cleanup not set)",
+                categorized.delete.len()
+            );
+            info!("");
+        }
+
+        if !categorized.skip.is_empty() {
+            info!("Would SKIP {} unchanged files", categorized.skip.len());
+        }
+
+        info!("======================");
     }
 
     /// Process files to be added
@@ -602,31 +742,6 @@ impl IncrementalLoader {
         }
 
         embedding
-    }
-
-    /// Log dry run summary
-    fn log_dry_run_summary(&self, categorized: &CategorizedFiles) {
-        info!("Dry run summary:");
-        info!("  Would skip:   {} files", categorized.skip.len());
-        info!("  Would add:    {} files", categorized.add.len());
-
-        if self.config.update {
-            info!("  Would update: {} files", categorized.update.len());
-        } else if !categorized.update.is_empty() {
-            info!(
-                "  Would skip update: {} files (use --update to process)",
-                categorized.update.len()
-            );
-        }
-
-        if self.config.cleanup {
-            info!("  Would delete: {} files", categorized.delete.len());
-        } else if !categorized.delete.is_empty() {
-            info!(
-                "  Would skip cleanup: {} files (use --cleanup to remove)",
-                categorized.delete.len()
-            );
-        }
     }
 }
 
