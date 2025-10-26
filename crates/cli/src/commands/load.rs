@@ -42,6 +42,13 @@ pub struct LoadArgs {
     #[arg(short, long)]
     pub resume: bool,
 
+    /// Update mode: update modified files and add new files
+    ///
+    /// This mode detects files that have changed (different hash) and
+    /// regenerates their chunks, replacing the old chunks atomically.
+    #[arg(short, long)]
+    pub update: bool,
+
     /// Database connection URL
     ///
     /// If not provided, uses the DATABASE_URL environment variable.
@@ -109,7 +116,7 @@ impl CliCommand for LoadArgs {
         let config = LoaderConfig {
             resume: self.resume,
             dry_run: self.dry_run,
-            update: false,  // Phase 4
+            update: self.update,
             cleanup: false, // Phase 5
             force: false,
         };
@@ -120,6 +127,7 @@ impl CliCommand for LoadArgs {
         for path in &self.paths {
             info!("    - {}", path.display());
         }
+        info!("  Update: {}", self.update);
         info!("  Dry run: {}", self.dry_run);
 
         // Create database connection pool
@@ -175,6 +183,7 @@ mod tests {
         let args = LoadArgs {
             paths: vec![],
             resume: false,
+            update: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -188,6 +197,7 @@ mod tests {
         let args = LoadArgs {
             paths: vec![PathBuf::from("/tmp")],
             resume: false,
+            update: false,
             database_url: String::new(),
             dry_run: false,
         };
@@ -201,6 +211,7 @@ mod tests {
         let args = LoadArgs {
             paths: vec![PathBuf::from("/nonexistent/path/that/does/not/exist")],
             resume: false,
+            update: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -216,6 +227,7 @@ mod tests {
             let args = LoadArgs {
                 paths: vec![PathBuf::from("/tmp")],
                 resume: false,
+                update: false,
                 database_url: "postgres://localhost/test".to_string(),
                 dry_run: false,
             };
@@ -230,6 +242,7 @@ mod tests {
         let args = LoadArgs {
             paths: vec![PathBuf::from("/tmp"), PathBuf::from("/var")],
             resume: false,
+            update: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -243,6 +256,7 @@ mod tests {
         let args = LoadArgs {
             paths: vec![PathBuf::from("/tmp")],
             resume: false,
+            update: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -255,11 +269,25 @@ mod tests {
         let args = LoadArgs {
             paths: vec![],
             resume: false,
+            update: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
 
         let result = CliCommand::validate(&args);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_load_args_with_update_flag() {
+        let args = LoadArgs {
+            paths: vec![PathBuf::from("/tmp")],
+            resume: false,
+            update: true,
+            database_url: "postgres://localhost/test".to_string(),
+            dry_run: false,
+        };
+
+        assert!(args.update);
     }
 }
