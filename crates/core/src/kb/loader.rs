@@ -2,16 +2,35 @@
 //!
 //! This module orchestrates the incremental loading process, coordinating
 //! file discovery, categorization, and processing based on configuration.
-//!
-//! This is a stub module to be implemented in Phase 3 of the incremental loading plan.
 
-use crate::kb::error::Result;
+use crate::kb::categorizer::{CategorizedFiles, FileCategorizer};
+use crate::kb::error::{KbError, Result};
+use crate::kb::store::KbStore;
+use sqlx::PgPool;
+use std::time::Instant;
+use tracing::{debug, info, warn};
 
 /// Configuration for incremental loader operations
 ///
 /// Controls the behavior of the incremental loading process including
 /// whether to resume interrupted loads, update modified files, or clean up
 /// deleted files.
+///
+/// # Examples
+///
+/// ```
+/// use xze_core::kb::loader::LoaderConfig;
+///
+/// // Default configuration (full load)
+/// let config = LoaderConfig::default();
+/// assert!(!config.resume);
+///
+/// // Resume mode configuration
+/// let resume_config = LoaderConfig {
+///     resume: true,
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Debug, Clone, Default)]
 pub struct LoaderConfig {
     /// Resume an interrupted load (skip unchanged files)
@@ -26,10 +45,63 @@ pub struct LoaderConfig {
     pub force: bool,
 }
 
+impl LoaderConfig {
+    /// Validate configuration for conflicts
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if configuration is valid
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError::ConfigError` if conflicting flags are set
+    pub fn validate(&self) -> Result<()> {
+        // Force and resume are mutually exclusive
+        if self.force && self.resume {
+            return Err(KbError::config("Cannot use --force and --resume together"));
+        }
+
+        // Force and update are mutually exclusive
+        if self.force && self.update {
+            return Err(KbError::config(
+                "Cannot use --force and --update together (force implies full reload)",
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Get human-readable mode description
+    pub fn mode_description(&self) -> &'static str {
+        if self.force {
+            "Force Full Reload"
+        } else if self.resume {
+            "Resume (Skip Unchanged)"
+        } else if self.update {
+            "Incremental Update"
+        } else {
+            "Full Load"
+        }
+    }
+}
+
 /// Statistics from a load operation
 ///
 /// Tracks the number of files processed in each category and the
 /// total duration of the operation.
+///
+/// # Examples
+///
+/// ```
+/// use xze_core::kb::loader::LoadStats;
+///
+/// let mut stats = LoadStats::new();
+/// stats.files_added = 10;
+/// stats.files_skipped = 5;
+///
+/// assert_eq!(stats.total_files(), 15);
+/// assert_eq!(stats.files_to_process(), 10);
+/// ```
 #[derive(Debug, Default, Clone)]
 pub struct LoadStats {
     /// Number of files skipped (unchanged)
@@ -54,14 +126,26 @@ impl LoadStats {
         Self::default()
     }
 
-    /// Get total number of files processed
+    /// Get total number of files discovered
     pub fn total_files(&self) -> usize {
         self.files_skipped + self.files_added + self.files_updated + self.files_deleted
     }
 
-    /// Get number of files that required processing
-    pub fn files_processed(&self) -> usize {
+    /// Get number of files that need processing (excludes skipped)
+    pub fn files_to_process(&self) -> usize {
         self.files_added + self.files_updated + self.files_deleted
+    }
+
+    /// Log summary of statistics
+    pub fn log_summary(&self) {
+        info!("Load operation completed in {:.2}s", self.duration_secs);
+        info!("  Files discovered: {}", self.total_files());
+        info!("  Files skipped:    {}", self.files_skipped);
+        info!("  Files added:      {}", self.files_added);
+        info!("  Files updated:    {}", self.files_updated);
+        info!("  Files deleted:    {}", self.files_deleted);
+        info!("  Chunks inserted:  {}", self.chunks_inserted);
+        info!("  Chunks deleted:   {}", self.chunks_deleted);
     }
 }
 
@@ -70,9 +154,29 @@ impl LoadStats {
 /// Orchestrates the incremental loading process by discovering files,
 /// categorizing them, and processing them according to configuration.
 ///
-/// TODO: Implement in Phase 3
+/// # Examples
+///
+/// ```no_run
+/// use xze_core::kb::loader::{IncrementalLoader, LoaderConfig};
+/// use sqlx::PgPool;
+///
+/// # async fn example(pool: PgPool) -> xze_core::kb::error::Result<()> {
+/// let config = LoaderConfig {
+///     resume: true,
+///     ..Default::default()
+/// };
+///
+/// let loader = IncrementalLoader::new(pool, config)?;
+/// let paths = vec!["./docs".to_string()];
+/// let stats = loader.load(&paths).await?;
+///
+/// println!("Loaded {} files", stats.files_to_process());
+/// # Ok(())
+/// # }
+/// ```
 pub struct IncrementalLoader {
-    // Store and config to be added in Phase 3
+    store: KbStore,
+    config: LoaderConfig,
 }
 
 impl IncrementalLoader {
@@ -80,8 +184,8 @@ impl IncrementalLoader {
     ///
     /// # Arguments
     ///
+    /// * `pool` - Database connection pool
     /// * `config` - Loader configuration
-    /// * `database_url` - Database connection string
     ///
     /// # Returns
     ///
@@ -89,18 +193,20 @@ impl IncrementalLoader {
     ///
     /// # Errors
     ///
-    /// Returns `KbError::Config` if configuration is invalid
-    /// Returns `KbError::Database` if database connection fails
-    ///
-    /// TODO: Implement in Phase 3
-    pub fn new(_config: LoaderConfig, _database_url: &str) -> Result<Self> {
-        Ok(Self {})
+    /// Returns `KbError::ConfigError` if configuration is invalid
+    pub fn new(pool: PgPool, config: LoaderConfig) -> Result<Self> {
+        config.validate()?;
+
+        Ok(Self {
+            store: KbStore::new(pool),
+            config,
+        })
     }
 
     /// Load files from specified paths
     ///
-    /// Discovers files, categorizes them, and processes according to
-    /// configuration settings.
+    /// Discovers files, categorizes them based on hash comparison,
+    /// and processes according to configuration settings.
     ///
     /// # Arguments
     ///
@@ -112,35 +218,200 @@ impl IncrementalLoader {
     ///
     /// # Errors
     ///
-    /// Returns `KbError::Loader` if load operation fails
-    ///
-    /// TODO: Implement in Phase 3
-    pub async fn load(&self, _paths: &[String]) -> Result<LoadStats> {
-        Ok(LoadStats::default())
+    /// Returns `KbError` if discovery, categorization, or processing fails
+    pub async fn load(&self, paths: &[String]) -> Result<LoadStats> {
+        let start = Instant::now();
+        let mut stats = LoadStats::new();
+
+        info!("Starting incremental load");
+        info!("  Mode: {}", self.config.mode_description());
+        info!("  Paths: {:?}", paths);
+        info!("  Dry run: {}", self.config.dry_run);
+
+        // Phase 1: Discover files with hashes
+        debug!("Discovering files and calculating hashes...");
+        let current_files = FileCategorizer::discover_files_with_hashes(paths).await?;
+        info!("Discovered {} files", current_files.len());
+
+        // Phase 2: Query existing files from database
+        let existing_files = if self.config.force {
+            // In force mode, treat all files as new
+            debug!("Force mode: treating all files as new");
+            std::collections::HashMap::new()
+        } else {
+            debug!("Querying existing files from database...");
+            self.store.query_existing_files().await?
+        };
+        info!("Found {} existing files in database", existing_files.len());
+
+        // Phase 3: Categorize files
+        debug!("Categorizing files...");
+        let categorizer = FileCategorizer::new(current_files, existing_files);
+        let categorized = categorizer.categorize();
+        FileCategorizer::log_summary(&categorized);
+
+        // Update statistics from categorization
+        stats.files_skipped = categorized.skip.len();
+        stats.files_added = categorized.add.len();
+        stats.files_updated = categorized.update.len();
+        stats.files_deleted = categorized.delete.len();
+
+        // Phase 4: Process files based on configuration
+        if self.config.dry_run {
+            info!("Dry run mode: skipping actual processing");
+            self.log_dry_run_summary(&categorized);
+        } else {
+            // Process add files (new files)
+            if !categorized.add.is_empty() {
+                info!("Processing {} new files...", categorized.add.len());
+                let chunks = self.process_add_files(&categorized.add).await?;
+                stats.chunks_inserted += chunks;
+                info!("Inserted {} chunks for new files", chunks);
+            }
+
+            // Process update files (only if update flag is set)
+            if self.config.update && !categorized.update.is_empty() {
+                info!("Processing {} modified files...", categorized.update.len());
+                let chunks = self.process_update_files(&categorized.update).await?;
+                stats.chunks_inserted += chunks;
+                info!("Updated {} chunks for modified files", chunks);
+            } else if !categorized.update.is_empty() && !self.config.update {
+                warn!(
+                    "Skipping {} modified files (use --update to process them)",
+                    categorized.update.len()
+                );
+            }
+
+            // Process delete files (only if cleanup flag is set)
+            if self.config.cleanup && !categorized.delete.is_empty() {
+                info!("Processing {} deleted files...", categorized.delete.len());
+                let chunks = self.process_delete_files(&categorized.delete).await?;
+                stats.chunks_deleted += chunks;
+                info!("Removed {} chunks for deleted files", chunks);
+            } else if !categorized.delete.is_empty() && !self.config.cleanup {
+                warn!(
+                    "Skipping {} deleted files (use --cleanup to remove them)",
+                    categorized.delete.len()
+                );
+            }
+        }
+
+        stats.duration_secs = start.elapsed().as_secs_f64();
+        stats.log_summary();
+
+        Ok(stats)
     }
 
     /// Process files to be added
     ///
-    /// TODO: Implement in Phase 3
-    #[allow(dead_code)]
-    async fn process_add_files(&self, _files: &[String]) -> Result<usize> {
+    /// Stub implementation for Phase 3 - actual chunk generation
+    /// and insertion will be implemented in Phase 4.
+    ///
+    /// # Arguments
+    ///
+    /// * `files` - List of file paths to add
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of chunks inserted
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError` if processing fails
+    async fn process_add_files(&self, files: &[String]) -> Result<usize> {
+        debug!("Processing {} files to add", files.len());
+
+        // TODO Phase 4: Implement actual chunk generation and insertion
+        // For now, just log that we would process these files
+        for file in files {
+            debug!("  Would add: {}", file);
+        }
+
+        // Return 0 chunks for now (Phase 4 will implement actual insertion)
         Ok(0)
     }
 
     /// Process files to be updated
     ///
-    /// TODO: Implement in Phase 4
-    #[allow(dead_code)]
-    async fn process_update_files(&self, _files: &[String]) -> Result<usize> {
+    /// Stub implementation for Phase 3 - actual implementation
+    /// will be completed in Phase 4.
+    ///
+    /// # Arguments
+    ///
+    /// * `files` - List of file paths to update
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of chunks inserted
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError` if processing fails
+    async fn process_update_files(&self, files: &[String]) -> Result<usize> {
+        debug!("Processing {} files to update", files.len());
+
+        // TODO Phase 4: Implement actual chunk generation and update
+        // For now, just log that we would process these files
+        for file in files {
+            debug!("  Would update: {}", file);
+        }
+
+        // Return 0 chunks for now (Phase 4 will implement actual update)
         Ok(0)
     }
 
     /// Process files to be deleted
     ///
-    /// TODO: Implement in Phase 5
-    #[allow(dead_code)]
-    async fn process_delete_files(&self, _files: &[String]) -> Result<usize> {
+    /// Stub implementation for Phase 3 - actual implementation
+    /// will be completed in Phase 5.
+    ///
+    /// # Arguments
+    ///
+    /// * `files` - List of file paths to delete
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of chunks deleted
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError` if processing fails
+    async fn process_delete_files(&self, files: &[String]) -> Result<usize> {
+        debug!("Processing {} files to delete", files.len());
+
+        // TODO Phase 5: Implement actual cleanup from database
+        // For now, just log that we would process these files
+        for file in files {
+            debug!("  Would delete: {}", file);
+        }
+
+        // Return 0 chunks for now (Phase 5 will implement actual cleanup)
         Ok(0)
+    }
+
+    /// Log dry run summary
+    fn log_dry_run_summary(&self, categorized: &CategorizedFiles) {
+        info!("Dry run summary:");
+        info!("  Would skip:   {} files", categorized.skip.len());
+        info!("  Would add:    {} files", categorized.add.len());
+
+        if self.config.update {
+            info!("  Would update: {} files", categorized.update.len());
+        } else if !categorized.update.is_empty() {
+            info!(
+                "  Would skip update: {} files (use --update to process)",
+                categorized.update.len()
+            );
+        }
+
+        if self.config.cleanup {
+            info!("  Would delete: {} files", categorized.delete.len());
+        } else if !categorized.delete.is_empty() {
+            info!(
+                "  Would skip cleanup: {} files (use --cleanup to remove)",
+                categorized.delete.len()
+            );
+        }
     }
 }
 
@@ -159,10 +430,77 @@ mod tests {
     }
 
     #[test]
+    fn test_loader_config_validate_success() {
+        let config = LoaderConfig {
+            resume: true,
+            update: false,
+            cleanup: true,
+            dry_run: true,
+            force: false,
+        };
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_loader_config_validate_force_resume_conflict() {
+        let config = LoaderConfig {
+            resume: true,
+            force: true,
+            ..Default::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_loader_config_validate_force_update_conflict() {
+        let config = LoaderConfig {
+            update: true,
+            force: true,
+            ..Default::default()
+        };
+        let result = config.validate();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_loader_config_mode_description() {
+        let config = LoaderConfig::default();
+        assert_eq!(config.mode_description(), "Full Load");
+
+        let resume_config = LoaderConfig {
+            resume: true,
+            ..Default::default()
+        };
+        assert_eq!(resume_config.mode_description(), "Resume (Skip Unchanged)");
+
+        let update_config = LoaderConfig {
+            update: true,
+            ..Default::default()
+        };
+        assert_eq!(update_config.mode_description(), "Incremental Update");
+
+        let force_config = LoaderConfig {
+            force: true,
+            ..Default::default()
+        };
+        assert_eq!(force_config.mode_description(), "Force Full Reload");
+    }
+
+    #[test]
     fn test_load_stats_default() {
         let stats = LoadStats::default();
         assert_eq!(stats.total_files(), 0);
-        assert_eq!(stats.files_processed(), 0);
+        assert_eq!(stats.files_to_process(), 0);
+        assert_eq!(stats.files_skipped, 0);
+        assert_eq!(stats.duration_secs, 0.0);
+    }
+
+    #[test]
+    fn test_load_stats_new() {
+        let stats = LoadStats::new();
+        assert_eq!(stats.total_files(), 0);
+        assert_eq!(stats.files_to_process(), 0);
     }
 
     #[test]
@@ -172,24 +510,22 @@ mod tests {
         stats.files_added = 3;
         stats.files_updated = 2;
         stats.files_deleted = 1;
+        stats.chunks_inserted = 10;
+        stats.chunks_deleted = 5;
 
         assert_eq!(stats.total_files(), 11);
-        assert_eq!(stats.files_processed(), 6);
+        assert_eq!(stats.files_to_process(), 6);
+        assert_eq!(stats.chunks_inserted, 10);
+        assert_eq!(stats.chunks_deleted, 5);
     }
 
     #[test]
-    fn test_incremental_loader_creation() {
-        let config = LoaderConfig::default();
-        let loader = IncrementalLoader::new(config, "test_url");
-        assert!(loader.is_ok());
-    }
+    fn test_load_stats_with_duration() {
+        let mut stats = LoadStats::new();
+        stats.duration_secs = 12.5;
+        stats.files_added = 100;
 
-    #[tokio::test]
-    async fn test_load_stub() {
-        let config = LoaderConfig::default();
-        let loader = IncrementalLoader::new(config, "test_url").unwrap();
-        let paths = vec!["test_path".to_string()];
-        let stats = loader.load(&paths).await.unwrap();
-        assert_eq!(stats.total_files(), 0);
+        assert_eq!(stats.total_files(), 100);
+        assert_eq!(stats.duration_secs, 12.5);
     }
 }
