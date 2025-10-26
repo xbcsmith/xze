@@ -13,6 +13,7 @@ pub mod git;
 pub mod kb;
 pub mod pipeline;
 pub mod repository;
+pub mod semantic;
 pub mod types;
 pub mod watcher;
 
@@ -28,6 +29,7 @@ pub use kb::{
     IncrementalLoader, KbError, KbStore, LoadStats, LoaderConfig,
 };
 pub use repository::{CodeStructure, Repository, RepositoryManager};
+pub use semantic::{ChunkMetadata, SemanticChunk, SentenceSplitter};
 pub use types::{
     DiátaxisCategory, JobId, JobStatus, OperationMode, ProgrammingLanguage, RepositoryId,
 };
