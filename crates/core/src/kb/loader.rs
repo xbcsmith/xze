@@ -435,17 +435,45 @@ impl IncrementalLoader {
     /// # Errors
     ///
     /// Returns `KbError` if processing fails
+    /// Process deleted files by removing their chunks from the database
+    ///
+    /// # Arguments
+    ///
+    /// * `files` - List of file paths that have been deleted from disk
+    ///
+    /// # Returns
+    ///
+    /// Returns the total number of chunks deleted
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError::Database` if deletion fails
     async fn process_delete_files(&self, files: &[String]) -> Result<usize> {
-        debug!("Processing {} files to delete", files.len());
-
-        // TODO Phase 5: Implement actual cleanup from database
-        // For now, just log that we would process these files
-        for file in files {
-            debug!("  Would delete: {}", file);
+        if files.is_empty() {
+            debug!("No deleted files to process");
+            return Ok(0);
         }
 
-        // Return 0 chunks for now (Phase 5 will implement actual cleanup)
-        Ok(0)
+        info!("Processing {} deleted files", files.len());
+
+        if self.config.dry_run {
+            info!("DRY RUN: Would delete chunks for {} files", files.len());
+            for file in files {
+                info!("  Would delete: {}", file);
+            }
+            return Ok(0);
+        }
+
+        // Call store to cleanup deleted files
+        let chunks_deleted = self.store.cleanup_deleted_files(files).await?;
+
+        info!(
+            "Successfully deleted {} chunks from {} files",
+            chunks_deleted,
+            files.len()
+        );
+
+        Ok(chunks_deleted as usize)
     }
 
     /// Generate document chunks from a file
