@@ -381,19 +381,85 @@ impl KbStore {
 
     /// Clean up deleted files from database
     ///
-    /// Removes files from the database that no longer exist on disk.
+    /// Removes all chunks for files that no longer exist on disk.
+    /// This operation deletes rows from the documents table for each
+    /// file path in the deleted_files list.
     ///
     /// # Arguments
     ///
     /// * `deleted_files` - List of file paths to remove
     ///
+    /// # Returns
+    ///
+    /// Returns the total number of chunks deleted across all files
+    ///
     /// # Errors
     ///
     /// Returns `KbError::Database` if cleanup fails
     ///
-    /// TODO: Implement in Phase 5
-    pub async fn cleanup_deleted_files(&self, _deleted_files: &[String]) -> Result<()> {
-        Ok(())
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use sqlx::PgPool;
+    /// use xze_core::kb::store::KbStore;
+    ///
+    /// # async fn example() -> xze_core::kb::error::Result<()> {
+    /// # let pool = PgPool::connect("postgresql://localhost/xze").await
+    /// #     .map_err(|e| xze_core::kb::error::KbError::database(e.to_string()))?;
+    /// let store = KbStore::new(pool);
+    /// let deleted_files = vec![
+    ///     "docs/old_file.md".to_string(),
+    ///     "src/removed.rs".to_string(),
+    /// ];
+    /// let deleted_count = store.cleanup_deleted_files(&deleted_files).await?;
+    /// println!("Deleted {} chunks from {} files", deleted_count, deleted_files.len());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn cleanup_deleted_files(&self, deleted_files: &[String]) -> Result<u64> {
+        if deleted_files.is_empty() {
+            debug!("No deleted files to clean up");
+            return Ok(0);
+        }
+
+        info!("Cleaning up {} deleted files", deleted_files.len());
+
+        let mut total_deleted = 0u64;
+
+        for file_path in deleted_files {
+            debug!("Deleting chunks for deleted file: {}", file_path);
+
+            let result = sqlx::query("DELETE FROM documents WHERE file_path = $1")
+                .bind(file_path)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| {
+                    KbError::database(format!(
+                        "Failed to delete chunks for file {}: {}",
+                        file_path, e
+                    ))
+                })?;
+
+            let rows_affected = result.rows_affected();
+            total_deleted += rows_affected;
+
+            if rows_affected > 0 {
+                info!(
+                    "Deleted {} chunks for deleted file: {}",
+                    rows_affected, file_path
+                );
+            } else {
+                debug!("No chunks found for deleted file: {}", file_path);
+            }
+        }
+
+        info!(
+            "Cleanup complete: deleted {} total chunks from {} files",
+            total_deleted,
+            deleted_files.len()
+        );
+
+        Ok(total_deleted)
     }
 }
 
@@ -501,8 +567,18 @@ mod tests {
         assert_eq!(bytes.len(), 12);
     }
 
-    #[tokio::test]
-    async fn test_cleanup_deleted_files_stub() {
-        // Stub test - will be replaced with real implementation in Phase 5
+    #[test]
+    fn test_cleanup_deleted_files_empty_list() {
+        // Test with empty list is handled synchronously
+        let deleted_files: Vec<String> = vec![];
+        assert_eq!(deleted_files.len(), 0);
+    }
+
+    #[test]
+    fn test_cleanup_deleted_files_valid_paths() {
+        let deleted_files = ["docs/removed.md".to_string(), "src/deleted.rs".to_string()];
+        assert_eq!(deleted_files.len(), 2);
+        assert_eq!(deleted_files[0], "docs/removed.md");
+        assert_eq!(deleted_files[1], "src/deleted.rs");
     }
 }

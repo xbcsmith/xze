@@ -49,6 +49,13 @@ pub struct LoadArgs {
     #[arg(short, long)]
     pub update: bool,
 
+    /// Cleanup mode: remove deleted files from database
+    ///
+    /// This mode removes chunks for files that no longer exist on disk.
+    /// Typically used with --update for a full incremental sync.
+    #[arg(short, long)]
+    pub cleanup: bool,
+
     /// Database connection URL
     ///
     /// If not provided, uses the DATABASE_URL environment variable.
@@ -117,7 +124,7 @@ impl CliCommand for LoadArgs {
             resume: self.resume,
             dry_run: self.dry_run,
             update: self.update,
-            cleanup: false, // Phase 5
+            cleanup: self.cleanup,
             force: false,
         };
 
@@ -128,6 +135,7 @@ impl CliCommand for LoadArgs {
             info!("    - {}", path.display());
         }
         info!("  Update: {}", self.update);
+        info!("  Cleanup: {}", self.cleanup);
         info!("  Dry run: {}", self.dry_run);
 
         // Create database connection pool
@@ -184,6 +192,7 @@ mod tests {
             paths: vec![],
             resume: false,
             update: false,
+            cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -198,6 +207,7 @@ mod tests {
             paths: vec![PathBuf::from("/tmp")],
             resume: false,
             update: false,
+            cleanup: false,
             database_url: String::new(),
             dry_run: false,
         };
@@ -212,6 +222,7 @@ mod tests {
             paths: vec![PathBuf::from("/nonexistent/path/that/does/not/exist")],
             resume: false,
             update: false,
+            cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -228,6 +239,7 @@ mod tests {
                 paths: vec![PathBuf::from("/tmp")],
                 resume: false,
                 update: false,
+                cleanup: false,
                 database_url: "postgres://localhost/test".to_string(),
                 dry_run: false,
             };
@@ -243,6 +255,7 @@ mod tests {
             paths: vec![PathBuf::from("/tmp"), PathBuf::from("/var")],
             resume: false,
             update: false,
+            cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -257,6 +270,7 @@ mod tests {
             paths: vec![PathBuf::from("/tmp")],
             resume: false,
             update: false,
+            cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -270,6 +284,7 @@ mod tests {
             paths: vec![],
             resume: false,
             update: false,
+            cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
@@ -284,10 +299,40 @@ mod tests {
             paths: vec![PathBuf::from("/tmp")],
             resume: false,
             update: true,
+            cleanup: false,
             database_url: "postgres://localhost/test".to_string(),
             dry_run: false,
         };
 
         assert!(args.update);
+    }
+
+    #[test]
+    fn test_load_args_with_cleanup_flag() {
+        let args = LoadArgs {
+            paths: vec![PathBuf::from("/tmp")],
+            resume: false,
+            update: false,
+            cleanup: true,
+            database_url: "postgres://localhost/test".to_string(),
+            dry_run: false,
+        };
+
+        assert!(args.cleanup);
+    }
+
+    #[test]
+    fn test_load_args_with_update_and_cleanup() {
+        let args = LoadArgs {
+            paths: vec![PathBuf::from("/tmp")],
+            resume: false,
+            update: true,
+            cleanup: true,
+            database_url: "postgres://localhost/test".to_string(),
+            dry_run: false,
+        };
+
+        assert!(args.update);
+        assert!(args.cleanup);
     }
 }
