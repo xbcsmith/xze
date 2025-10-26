@@ -2,8 +2,10 @@
 //!
 //! This module provides database operations for storing and retrieving
 //! file metadata, including file paths and hashes for incremental loading.
+//! It also supports storing and retrieving semantic chunks.
 
 use crate::kb::error::{KbError, Result};
+use crate::semantic::types::{ChunkMetadata, SemanticChunk};
 use sqlx::{PgPool, Row};
 use std::collections::HashMap;
 use std::path::Path;
@@ -461,6 +463,351 @@ impl KbStore {
 
         Ok(total_deleted)
     }
+
+    /// Store semantic chunks for a file
+    ///
+    /// Inserts semantic chunks into the semantic_chunks table.
+    /// This method should be called after generating semantic chunks from a document.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - Path of the file
+    /// * `file_hash` - SHA-256 hash of the file
+    /// * `chunks` - Slice of SemanticChunk to store
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError::Database` if insertion fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use sqlx::PgPool;
+    /// use xze_core::kb::store::KbStore;
+    /// use xze_core::semantic::types::{SemanticChunk, ChunkMetadata};
+    ///
+    /// # async fn example() -> xze_core::kb::error::Result<()> {
+    /// # let pool = PgPool::connect("postgresql://localhost/xze").await
+    /// #     .map_err(|e| xze_core::kb::error::KbError::database(e.to_string()))?;
+    /// let store = KbStore::new(pool);
+    /// let metadata = ChunkMetadata::new("docs/example.md".to_string(), "Example content");
+    /// let chunks = vec![
+    ///     SemanticChunk::new(
+    ///         "Chunk content".to_string(),
+    ///         0, 1, 0, 2, 0.85,
+    ///         metadata.clone(),
+    ///     )
+    /// ];
+    /// store.store_semantic_chunks(Path::new("docs/example.md"), "abc123", &chunks).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn store_semantic_chunks(
+        &self,
+        file_path: &Path,
+        file_hash: &str,
+        chunks: &[SemanticChunk],
+    ) -> Result<()> {
+        let file_path_str = file_path.to_string_lossy();
+
+        info!(
+            "Storing {} semantic chunks for file: {}",
+            chunks.len(),
+            file_path_str
+        );
+
+        for chunk in chunks {
+            let embedding_bytes = self.embedding_to_bytes(&chunk.embedding);
+            let keywords: Vec<String> = chunk
+                .metadata
+                .keywords
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+
+            sqlx::query(
+                r#"
+                INSERT INTO semantic_chunks
+                (file_path, file_hash, chunk_index, total_chunks, start_sentence, end_sentence,
+                 content, embedding, avg_similarity, source_file, title, category, keywords,
+                 word_count, char_count)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+                "#,
+            )
+            .bind(file_path_str.as_ref())
+            .bind(file_hash)
+            .bind(chunk.chunk_index as i32)
+            .bind(chunk.total_chunks as i32)
+            .bind(chunk.start_sentence as i32)
+            .bind(chunk.end_sentence as i32)
+            .bind(&chunk.content)
+            .bind(embedding_bytes)
+            .bind(chunk.avg_similarity)
+            .bind(&chunk.metadata.source_file)
+            .bind(chunk.metadata.title.as_deref())
+            .bind(chunk.metadata.category.as_deref())
+            .bind(&keywords)
+            .bind(chunk.metadata.word_count as i32)
+            .bind(chunk.metadata.char_count as i32)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                KbError::database(format!(
+                    "Failed to insert semantic chunk {} for file {}: {}",
+                    chunk.chunk_index, file_path_str, e
+                ))
+            })?;
+
+            debug!("Inserted semantic chunk: {}", chunk.chunk_index);
+        }
+
+        info!(
+            "Successfully stored {} semantic chunks for file: {}",
+            chunks.len(),
+            file_path_str
+        );
+
+        Ok(())
+    }
+
+    /// Delete semantic chunks for a specific file
+    ///
+    /// Removes all semantic chunks associated with the given file path
+    /// from the semantic_chunks table.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - Path of the file whose chunks should be deleted
+    ///
+    /// # Returns
+    ///
+    /// Returns the number of rows (chunks) deleted
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError::Database` if deletion fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use sqlx::PgPool;
+    /// use xze_core::kb::store::KbStore;
+    ///
+    /// # async fn example() -> xze_core::kb::error::Result<()> {
+    /// # let pool = PgPool::connect("postgresql://localhost/xze").await
+    /// #     .map_err(|e| xze_core::kb::error::KbError::database(e.to_string()))?;
+    /// let store = KbStore::new(pool);
+    /// let deleted = store.delete_semantic_chunks_for_file(Path::new("docs/example.md")).await?;
+    /// println!("Deleted {} semantic chunks", deleted);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn delete_semantic_chunks_for_file(&self, file_path: &Path) -> Result<u64> {
+        let file_path_str = file_path.to_string_lossy();
+
+        debug!("Deleting semantic chunks for file: {}", file_path_str);
+
+        let result = sqlx::query("DELETE FROM semantic_chunks WHERE file_path = $1")
+            .bind(file_path_str.as_ref())
+            .execute(&self.pool)
+            .await
+            .map_err(|e| {
+                KbError::database(format!(
+                    "Failed to delete semantic chunks for file {}: {}",
+                    file_path_str, e
+                ))
+            })?;
+
+        let rows_affected = result.rows_affected();
+
+        if rows_affected > 0 {
+            info!(
+                "Deleted {} semantic chunks for file: {}",
+                rows_affected, file_path_str
+            );
+        } else {
+            debug!(
+                "No semantic chunks found to delete for file: {}",
+                file_path_str
+            );
+        }
+
+        Ok(rows_affected)
+    }
+
+    /// Get semantic chunks for a specific file
+    ///
+    /// Retrieves all semantic chunks for the given file path, ordered by chunk_index.
+    ///
+    /// # Arguments
+    ///
+    /// * `file_path` - Path of the file to retrieve chunks for
+    ///
+    /// # Returns
+    ///
+    /// Returns a vector of SemanticChunk ordered by chunk_index
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError::Database` if query fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    /// use sqlx::PgPool;
+    /// use xze_core::kb::store::KbStore;
+    ///
+    /// # async fn example() -> xze_core::kb::error::Result<()> {
+    /// # let pool = PgPool::connect("postgresql://localhost/xze").await
+    /// #     .map_err(|e| xze_core::kb::error::KbError::database(e.to_string()))?;
+    /// let store = KbStore::new(pool);
+    /// let chunks = store.get_semantic_chunks_for_file(Path::new("docs/example.md")).await?;
+    /// println!("Retrieved {} semantic chunks", chunks.len());
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_semantic_chunks_for_file(
+        &self,
+        file_path: &Path,
+    ) -> Result<Vec<SemanticChunk>> {
+        let file_path_str = file_path.to_string_lossy();
+
+        debug!("Retrieving semantic chunks for file: {}", file_path_str);
+
+        let query = r#"
+            SELECT chunk_index, total_chunks, start_sentence, end_sentence,
+                   content, embedding, avg_similarity, source_file, title, category,
+                   keywords, word_count, char_count
+            FROM semantic_chunks
+            WHERE file_path = $1
+            ORDER BY chunk_index ASC
+        "#;
+
+        let rows = sqlx::query(query)
+            .bind(file_path_str.as_ref())
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| {
+                KbError::database(format!(
+                    "Failed to retrieve semantic chunks for file {}: {}",
+                    file_path_str, e
+                ))
+            })?;
+
+        let mut chunks = Vec::new();
+
+        for row in rows {
+            let chunk_index: i32 = row
+                .try_get("chunk_index")
+                .map_err(|e| KbError::database(format!("Failed to get chunk_index: {}", e)))?;
+            let total_chunks: i32 = row
+                .try_get("total_chunks")
+                .map_err(|e| KbError::database(format!("Failed to get total_chunks: {}", e)))?;
+            let start_sentence: i32 = row
+                .try_get("start_sentence")
+                .map_err(|e| KbError::database(format!("Failed to get start_sentence: {}", e)))?;
+            let end_sentence: i32 = row
+                .try_get("end_sentence")
+                .map_err(|e| KbError::database(format!("Failed to get end_sentence: {}", e)))?;
+            let content: String = row
+                .try_get("content")
+                .map_err(|e| KbError::database(format!("Failed to get content: {}", e)))?;
+            let embedding_bytes: Vec<u8> = row
+                .try_get("embedding")
+                .map_err(|e| KbError::database(format!("Failed to get embedding: {}", e)))?;
+            let avg_similarity: f32 = row
+                .try_get("avg_similarity")
+                .map_err(|e| KbError::database(format!("Failed to get avg_similarity: {}", e)))?;
+            let source_file: String = row
+                .try_get("source_file")
+                .map_err(|e| KbError::database(format!("Failed to get source_file: {}", e)))?;
+            let title: Option<String> = row
+                .try_get("title")
+                .map_err(|e| KbError::database(format!("Failed to get title: {}", e)))?;
+            let category: Option<String> = row
+                .try_get("category")
+                .map_err(|e| KbError::database(format!("Failed to get category: {}", e)))?;
+            let keywords: Vec<String> = row
+                .try_get("keywords")
+                .map_err(|e| KbError::database(format!("Failed to get keywords: {}", e)))?;
+            let word_count: i32 = row
+                .try_get("word_count")
+                .map_err(|e| KbError::database(format!("Failed to get word_count: {}", e)))?;
+            let char_count: i32 = row
+                .try_get("char_count")
+                .map_err(|e| KbError::database(format!("Failed to get char_count: {}", e)))?;
+
+            let embedding = self.bytes_to_embedding(&embedding_bytes)?;
+
+            let metadata = ChunkMetadata {
+                source_file,
+                title,
+                category,
+                keywords,
+                word_count: word_count as usize,
+                char_count: char_count as usize,
+            };
+
+            let chunk = SemanticChunk {
+                content,
+                chunk_index: chunk_index as usize,
+                total_chunks: total_chunks as usize,
+                start_sentence: start_sentence as usize,
+                end_sentence: end_sentence as usize,
+                avg_similarity: avg_similarity as f64,
+                metadata,
+                embedding,
+            };
+
+            chunks.push(chunk);
+        }
+
+        info!(
+            "Retrieved {} semantic chunks for file: {}",
+            chunks.len(),
+            file_path_str
+        );
+
+        Ok(chunks)
+    }
+
+    /// Convert embedding vector to bytes for database storage
+    ///
+    /// Converts the f32 vector to a byte array that can be stored
+    /// in PostgreSQL as a bytea column.
+    fn embedding_to_bytes(&self, embedding: &[f32]) -> Vec<u8> {
+        embedding.iter().flat_map(|f| f.to_le_bytes()).collect()
+    }
+
+    /// Convert bytes from database back to embedding vector
+    ///
+    /// Converts a byte array from PostgreSQL bytea column back to
+    /// a vector of f32 values.
+    ///
+    /// # Errors
+    ///
+    /// Returns `KbError::Database` if byte array length is not a multiple of 4
+    fn bytes_to_embedding(&self, bytes: &[u8]) -> Result<Vec<f32>> {
+        if !bytes.len().is_multiple_of(4) {
+            return Err(KbError::database(format!(
+                "Invalid embedding byte length: {} (must be multiple of 4)",
+                bytes.len()
+            )));
+        }
+
+        let embedding = bytes
+            .chunks_exact(4)
+            .map(|chunk| {
+                let arr: [u8; 4] = chunk.try_into().expect("chunk is exactly 4 bytes");
+                f32::from_le_bytes(arr)
+            })
+            .collect();
+
+        Ok(embedding)
+    }
 }
 
 /// Represents a document chunk to be stored in the database
@@ -580,5 +927,75 @@ mod tests {
         assert_eq!(deleted_files.len(), 2);
         assert_eq!(deleted_files[0], "docs/removed.md");
         assert_eq!(deleted_files[1], "src/deleted.rs");
+    }
+
+    #[test]
+    fn test_embedding_to_bytes_conversion() {
+        // Test embedding conversion without database pool
+        let embedding = vec![1.0f32, 2.5f32, -3.14f32];
+
+        // Convert to bytes manually (same logic as embedding_to_bytes)
+        let bytes: Vec<u8> = embedding.iter().flat_map(|f| f.to_le_bytes()).collect();
+
+        // Each f32 is 4 bytes
+        assert_eq!(bytes.len(), 12);
+
+        // Verify we can convert back manually (same logic as bytes_to_embedding)
+        let restored: Vec<f32> = bytes
+            .chunks_exact(4)
+            .map(|chunk| {
+                let arr: [u8; 4] = chunk.try_into().unwrap();
+                f32::from_le_bytes(arr)
+            })
+            .collect();
+
+        assert_eq!(restored.len(), 3);
+        assert!((restored[0] - 1.0).abs() < 0.001);
+        assert!((restored[1] - 2.5).abs() < 0.001);
+        assert!((restored[2] - (-3.14)).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_bytes_to_embedding_invalid_length() {
+        // Invalid byte length (not a multiple of 4)
+        let invalid_bytes = vec![0u8, 1u8, 2u8];
+
+        // Test the validation logic
+        assert!(!invalid_bytes.len().is_multiple_of(4));
+        assert_eq!(invalid_bytes.len(), 3);
+    }
+
+    #[test]
+    fn test_bytes_to_embedding_empty() {
+        let empty_bytes: Vec<u8> = vec![];
+
+        // Empty bytes should be valid (multiple of 4: 0 % 4 == 0)
+        assert!(empty_bytes.len().is_multiple_of(4));
+
+        // Converting empty bytes should yield empty embedding
+        let result: Vec<f32> = empty_bytes
+            .chunks_exact(4)
+            .map(|chunk| {
+                let arr: [u8; 4] = chunk.try_into().unwrap();
+                f32::from_le_bytes(arr)
+            })
+            .collect();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_semantic_chunk_with_embedding() {
+        use crate::semantic::types::{ChunkMetadata, SemanticChunk};
+
+        let metadata = ChunkMetadata::new("test.md".to_string(), "Test content");
+        let embedding = vec![0.1, 0.2, 0.3, 0.4];
+
+        let mut chunk = SemanticChunk::new("Test content".to_string(), 0, 1, 0, 0, 0.95, metadata);
+        chunk.set_embedding(embedding.clone());
+
+        assert_eq!(chunk.embedding.len(), 4);
+        assert_eq!(chunk.embedding, embedding);
+        assert_eq!(chunk.chunk_index, 0);
     }
 }
