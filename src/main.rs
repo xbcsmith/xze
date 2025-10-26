@@ -43,6 +43,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
+    /// Load documents into knowledge base
+    Load(xze_cli::LoadArgs),
+
     /// Analyze repositories and generate documentation
     Analyze {
         /// Repository paths to analyze (local mode)
@@ -122,6 +125,10 @@ async fn main() -> Result<()> {
 
     // Handle commands
     match cli.command {
+        Some(Commands::Load(ref args)) => {
+            handle_load(args, &cli).await?;
+        }
+
         Some(Commands::Analyze {
             ref repos,
             auto,
@@ -174,6 +181,15 @@ async fn main() -> Result<()> {
     }
 
     info!("XZe completed successfully");
+    Ok(())
+}
+
+async fn handle_load(args: &xze_cli::LoadArgs, _cli: &Cli) -> Result<()> {
+    info!("Executing load command");
+
+    // Validate and execute the load command
+    xze_cli::execute_command(args.clone()).await?;
+
     Ok(())
 }
 
