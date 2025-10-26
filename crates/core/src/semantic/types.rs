@@ -60,6 +60,10 @@ pub struct SemanticChunk {
 
     /// Additional metadata about the chunk
     pub metadata: ChunkMetadata,
+
+    /// Embedding vector for semantic similarity search
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub embedding: Vec<f32>,
 }
 
 /// Metadata associated with a semantic chunk
@@ -161,7 +165,45 @@ impl SemanticChunk {
             end_sentence,
             avg_similarity,
             metadata,
+            embedding: Vec::new(),
         }
+    }
+
+    /// Sets the embedding vector for this chunk
+    ///
+    /// # Arguments
+    ///
+    /// * `embedding` - Embedding vector for semantic search
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::semantic::types::{SemanticChunk, ChunkMetadata};
+    ///
+    /// let metadata = ChunkMetadata {
+    ///     source_file: "test.md".to_string(),
+    ///     title: None,
+    ///     category: None,
+    ///     keywords: vec![],
+    ///     word_count: 10,
+    ///     char_count: 50,
+    /// };
+    ///
+    /// let mut chunk = SemanticChunk::new(
+    ///     "Test content".to_string(),
+    ///     0,
+    ///     1,
+    ///     0,
+    ///     0,
+    ///     1.0,
+    ///     metadata,
+    /// );
+    /// chunk.set_embedding(vec![0.1, 0.2, 0.3]);
+    ///
+    /// assert_eq!(chunk.embedding.len(), 3);
+    /// ```
+    pub fn set_embedding(&mut self, embedding: Vec<f32>) {
+        self.embedding = embedding;
     }
 
     /// Returns the number of sentences in this chunk

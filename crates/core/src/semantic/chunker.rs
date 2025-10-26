@@ -432,7 +432,7 @@ impl SemanticChunker {
     ///
     /// # Returns
     ///
-    /// Returns a vector of [`SemanticChunk`] instances.
+    /// Returns a vector of [`SemanticChunk`] instances with embeddings.
     fn create_chunks(
         &self,
         sentences: &[String],
@@ -468,7 +468,12 @@ impl SemanticChunker {
                             self.calculate_chunk_similarity(embeddings, sub_start, sub_end) as f64;
 
                         let content = sub_sentences.join(" ");
-                        let chunk = SemanticChunk::new(
+
+                        // Compute chunk embedding as average of sentence embeddings
+                        let chunk_embedding =
+                            self.compute_chunk_embedding(embeddings, sub_start, sub_end);
+
+                        let mut chunk = SemanticChunk::new(
                             content,
                             chunks.len(),
                             0, // Total chunks updated later
@@ -477,6 +482,7 @@ impl SemanticChunker {
                             avg_similarity,
                             chunk_metadata.clone(),
                         );
+                        chunk.embedding = chunk_embedding;
                         chunks.push(chunk);
                     }
 
@@ -488,7 +494,12 @@ impl SemanticChunker {
                     self.calculate_chunk_similarity(embeddings, current_start, boundary) as f64;
 
                 let content = chunk_sentences.join(" ");
-                let chunk = SemanticChunk::new(
+
+                // Compute chunk embedding as average of sentence embeddings
+                let chunk_embedding =
+                    self.compute_chunk_embedding(embeddings, current_start, boundary);
+
+                let mut chunk = SemanticChunk::new(
                     content,
                     chunks.len(),
                     0, // Total chunks updated later
@@ -497,6 +508,7 @@ impl SemanticChunker {
                     avg_similarity,
                     chunk_metadata.clone(),
                 );
+                chunk.embedding = chunk_embedding;
                 chunks.push(chunk);
             }
 
@@ -512,7 +524,12 @@ impl SemanticChunker {
                         as f64;
 
                 let content = remaining_sentences.join(" ");
-                let chunk = SemanticChunk::new(
+
+                // Compute chunk embedding as average of sentence embeddings
+                let chunk_embedding =
+                    self.compute_chunk_embedding(embeddings, current_start, sentences.len());
+
+                let mut chunk = SemanticChunk::new(
                     content,
                     chunks.len(),
                     0,
@@ -521,6 +538,7 @@ impl SemanticChunker {
                     avg_similarity,
                     chunk_metadata.clone(),
                 );
+                chunk.embedding = chunk_embedding;
                 chunks.push(chunk);
             } else if !chunks.is_empty() {
                 // Merge with last chunk if too small
@@ -544,6 +562,56 @@ impl SemanticChunker {
         }
 
         chunks
+    }
+
+    /// Computes chunk embedding by averaging sentence embeddings
+    ///
+    /// Creates a single embedding vector for the chunk by computing the mean
+    /// of all sentence embeddings within the specified range.
+    ///
+    /// # Arguments
+    ///
+    /// * `embeddings` - All sentence embeddings
+    /// * `start` - Start index (inclusive)
+    /// * `end` - End index (exclusive)
+    ///
+    /// # Returns
+    ///
+    /// Returns the averaged embedding vector for the chunk.
+    fn compute_chunk_embedding(
+        &self,
+        embeddings: &[Vec<f32>],
+        start: usize,
+        end: usize,
+    ) -> Vec<f32> {
+        if start >= end || embeddings.is_empty() {
+            return Vec::new();
+        }
+
+        let chunk_embeddings = &embeddings[start..end];
+
+        if chunk_embeddings.is_empty() {
+            return Vec::new();
+        }
+
+        // Get the embedding dimension from the first embedding
+        let dim = chunk_embeddings[0].len();
+
+        // Sum all embeddings
+        let mut sum = vec![0.0f32; dim];
+        for embedding in chunk_embeddings {
+            for (i, &val) in embedding.iter().enumerate() {
+                sum[i] += val;
+            }
+        }
+
+        // Compute average
+        let count = chunk_embeddings.len() as f32;
+        for val in &mut sum {
+            *val /= count;
+        }
+
+        sum
     }
 
     /// Calculates average similarity within a chunk
