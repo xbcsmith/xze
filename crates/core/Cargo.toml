@@ -51,9 +51,16 @@ url = "2.4"
 
 # Pattern matching
 glob = "0.3"
+regex = "1.10"
 
 # Cryptographic hashing
 sha2 = "0.10"
+
+# Semantic chunking dependencies
+once_cell = "1.19"
+unicode-segmentation = "1.10"
+itertools = "0.12"
+ndarray = "0.15"
 
 # Database
 sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "macros", "migrate"] }
