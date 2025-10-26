@@ -18,7 +18,7 @@ This document outlines the complete implementation plan for adding semantic chun
 
 ### Crate Placement
 
-Semantic chunking belongs in `xze-core` as core business logic:
+Semantic chunking belongs in `xze/crates/core` as core business logic:
 
 ```text
 xze/
