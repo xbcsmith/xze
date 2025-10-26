@@ -37,12 +37,14 @@
 //! assert!(metadata.word_count > 0);
 //! ```
 
+pub mod chunker;
 pub mod embeddings;
 pub mod similarity;
 pub mod splitter;
 pub mod types;
 
 // Re-export commonly used types
+pub use chunker::{ChunkerConfig, ChunkingError, SemanticChunker};
 pub use embeddings::{generate_embeddings, generate_embeddings_batch, EmbeddingError};
 pub use similarity::{
     calculate_percentile, cosine_similarity, pairwise_similarities, SimilarityError,
