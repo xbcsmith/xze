@@ -3,12 +3,14 @@
 use xze_core::Result;
 
 pub mod analyze;
+pub mod chunk;
 pub mod init;
 pub mod load;
 pub mod serve;
 pub mod validate;
 
 pub use analyze::*;
+pub use chunk::*;
 pub use init::*;
 pub use load::*;
 pub use serve::*;

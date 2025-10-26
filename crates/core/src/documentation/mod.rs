@@ -10,6 +10,7 @@ use std::{path::Path, sync::Arc};
 pub mod crossref;
 pub mod generator;
 pub mod index;
+pub mod processor;
 pub mod validator;
 
 pub use crossref::{CrossReference, CrossReferenceGenerator, LinkStrategy, Relationship};
@@ -17,6 +18,7 @@ pub use generator::{
     AIDocumentationGenerator, Document, DocumentMetadata, DocumentationGenerator, GeneratorConfig,
 };
 pub use index::IndexGenerator;
+pub use processor::{DocumentProcessor, ProcessingConfig, ProcessingError, ProcessingResult};
 pub use validator::{
     DiátaxisValidator, DocumentationValidator, ValidationResult, ValidatorConfig
 };
