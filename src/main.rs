@@ -46,6 +46,9 @@ enum Commands {
     /// Load documents into knowledge base
     Load(xze_cli::LoadArgs),
 
+    /// Chunk documents with semantic chunking
+    Chunk(xze_cli::ChunkArgs),
+
     /// Analyze repositories and generate documentation
     Analyze {
         /// Repository paths to analyze (local mode)
@@ -129,6 +132,10 @@ async fn main() -> Result<()> {
             handle_load(args, &cli).await?;
         }
 
+        Some(Commands::Chunk(ref args)) => {
+            handle_chunk(args, &cli).await?;
+        }
+
         Some(Commands::Analyze {
             ref repos,
             auto,
@@ -188,6 +195,15 @@ async fn handle_load(args: &xze_cli::LoadArgs, _cli: &Cli) -> Result<()> {
     info!("Executing load command");
 
     // Validate and execute the load command
+    xze_cli::execute_command(args.clone()).await?;
+
+    Ok(())
+}
+
+async fn handle_chunk(args: &xze_cli::ChunkArgs, _cli: &Cli) -> Result<()> {
+    info!("Executing chunk command");
+
+    // Validate and execute the chunk command
     xze_cli::execute_command(args.clone()).await?;
 
     Ok(())
