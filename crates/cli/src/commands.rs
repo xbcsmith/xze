@@ -6,6 +6,7 @@ pub mod analyze;
 pub mod chunk;
 pub mod init;
 pub mod load;
+pub mod search;
 pub mod serve;
 pub mod validate;
 
@@ -13,6 +14,7 @@ pub use analyze::*;
 pub use chunk::*;
 pub use init::*;
 pub use load::*;
+pub use search::*;
 pub use serve::*;
 pub use validate::*;
 
