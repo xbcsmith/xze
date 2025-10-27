@@ -7,12 +7,19 @@ use std::sync::Arc;
 pub mod client;
 pub mod confidence;
 pub mod context;
+pub mod intent_classifier;
+pub mod intent_types;
 pub mod prompts;
 pub mod validator;
 
 pub use client::OllamaClient;
 pub use confidence::{ConfidenceScore, ConfidenceScorer, DocumentType, ScoringContext};
 pub use context::{ContextManager, PromptComponent, TokenBudget};
+pub use intent_classifier::{ClassifierConfig, IntentClassifier};
+pub use intent_types::{
+    ClassificationError, ClassificationMetadata, ClassificationResult, Confidence, ConfidenceLevel,
+    DiataxisIntent,
+};
 pub use prompts::PromptTemplateLibrary;
 pub use validator::{ResponseValidator, ValidationResult};
 
