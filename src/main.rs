@@ -49,6 +49,9 @@ enum Commands {
     /// Chunk documents with semantic chunking
     Chunk(xze_cli::ChunkArgs),
 
+    /// Search document chunks using semantic similarity
+    Search(xze_cli::SearchArgs),
+
     /// Analyze repositories and generate documentation
     Analyze {
         /// Repository paths to analyze (local mode)
@@ -136,6 +139,10 @@ async fn main() -> Result<()> {
             handle_chunk(args, &cli).await?;
         }
 
+        Some(Commands::Search(ref args)) => {
+            handle_search(args, &cli).await?;
+        }
+
         Some(Commands::Analyze {
             ref repos,
             auto,
@@ -204,6 +211,15 @@ async fn handle_chunk(args: &xze_cli::ChunkArgs, _cli: &Cli) -> Result<()> {
     info!("Executing chunk command");
 
     // Validate and execute the chunk command
+    xze_cli::execute_command(args.clone()).await?;
+
+    Ok(())
+}
+
+async fn handle_search(args: &xze_cli::SearchArgs, _cli: &Cli) -> Result<()> {
+    info!("Executing search command");
+
+    // Validate and execute the search command
     xze_cli::execute_command(args.clone()).await?;
 
     Ok(())
