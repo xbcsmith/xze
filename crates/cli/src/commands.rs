@@ -4,6 +4,7 @@ use xze_core::Result;
 
 pub mod analyze;
 pub mod chunk;
+pub mod classify;
 pub mod init;
 pub mod load;
 pub mod search;
@@ -12,6 +13,7 @@ pub mod validate;
 
 pub use analyze::*;
 pub use chunk::*;
+pub use classify::*;
 pub use init::*;
 pub use load::*;
 pub use search::*;

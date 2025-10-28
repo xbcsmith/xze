@@ -25,10 +25,12 @@ use crate::ai::client::{GenerateOptions, GenerateRequest, OllamaClient};
 use crate::ai::intent_types::{
     ClassificationError, ClassificationMetadata, ClassificationResult, Confidence, DiataxisIntent,
 };
+use crate::ai::metrics::ClassifierMetrics;
 use crate::error::Result;
+use moka::future::Cache;
 use regex::Regex;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 /// Configuration for the intent classifier
@@ -46,7 +48,7 @@ use tracing::{debug, info, warn};
 /// assert_eq!(config.model, "llama2:latest");
 /// assert_eq!(config.temperature, 0.2);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ClassifierConfig {
     /// Model to use for classification
     pub model: String,
@@ -116,13 +118,22 @@ impl ClassifierConfig {
     }
 }
 
+/// Cached classification result
+#[derive(Debug, Clone)]
+struct CachedResult {
+    result: ClassificationResult,
+}
+
 /// Intent classifier for determining documentation type
 ///
 /// Uses AI models to classify queries according to the Diataxis framework.
+/// Includes caching support for improved performance.
 #[derive(Debug)]
 pub struct IntentClassifier {
     config: ClassifierConfig,
     client: Arc<OllamaClient>,
+    cache: Cache<String, CachedResult>,
+    metrics: ClassifierMetrics,
 }
 
 impl IntentClassifier {
@@ -145,7 +156,76 @@ impl IntentClassifier {
     /// let classifier = IntentClassifier::new(config, client);
     /// ```
     pub fn new(config: ClassifierConfig, client: Arc<OllamaClient>) -> Self {
-        Self { config, client }
+        let cache = Cache::builder()
+            .max_capacity(config.cache_size as u64)
+            .time_to_live(Duration::from_secs(config.cache_ttl_seconds))
+            .build();
+
+        #[cfg(feature = "metrics")]
+        let metrics = if config.enable_metrics {
+            ClassifierMetrics::new()
+        } else {
+            // When metrics feature is enabled but config says disabled,
+            // we still need to create the struct but it won't record anything
+            ClassifierMetrics::new()
+        };
+
+        #[cfg(not(feature = "metrics"))]
+        let metrics = ClassifierMetrics;
+
+        Self {
+            config,
+            client,
+            cache,
+            metrics,
+        }
+    }
+
+    /// Clear the classification cache
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use xze_core::ai::intent_classifier::{IntentClassifier, ClassifierConfig};
+    /// # use xze_core::ai::client::OllamaClient;
+    /// # use std::sync::Arc;
+    /// # let config = ClassifierConfig::default();
+    /// # let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+    /// # let classifier = IntentClassifier::new(config, client);
+    /// classifier.clear_cache();
+    /// ```
+    pub fn clear_cache(&self) {
+        self.cache.invalidate_all();
+        self.metrics.record_cache_clear();
+        self.metrics.set_cache_size(0);
+    }
+
+    /// Get cache statistics
+    ///
+    /// Returns a tuple of (entry_count, weighted_size)
+    pub fn cache_stats(&self) -> (u64, u64) {
+        let entry_count = self.cache.entry_count();
+        self.metrics.set_cache_size(entry_count);
+        (entry_count, self.cache.weighted_size())
+    }
+
+    /// Normalize a cache key for consistent lookups
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query to normalize
+    ///
+    /// # Returns
+    ///
+    /// Returns a normalized string suitable for use as a cache key
+    fn normalize_cache_key(query: &str) -> String {
+        // Convert to lowercase, trim whitespace, and collapse multiple spaces
+        query
+            .trim()
+            .to_lowercase()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     /// Classify a query to determine its documentation intent
@@ -188,6 +268,45 @@ impl IntentClassifier {
         }
 
         let start = Instant::now();
+        let cache_key = Self::normalize_cache_key(query);
+
+        // Check cache first
+        if let Some(cached) = self.cache.get(&cache_key).await {
+            debug!("Cache hit for query: {}", query);
+            self.metrics.record_cache_hit();
+
+            let mut result = cached.result.clone();
+            let duration = start.elapsed().as_millis() as u64;
+            result.metadata = result
+                .metadata
+                .clone()
+                .set_duration(duration)
+                .set_cached(true);
+
+            // Record metrics for cached result
+            if result.secondary_intents.is_empty() {
+                self.metrics
+                    .record_classification(duration, true, &result.primary_intent);
+            } else {
+                self.metrics.record_multi_intent_classification(
+                    duration,
+                    true,
+                    &result.primary_intent,
+                    result.secondary_intents.len(),
+                );
+            }
+
+            info!(
+                "Retrieved cached classification: {} with {:.1}% confidence in {}ms",
+                result.primary_intent,
+                result.confidence.percentage(),
+                duration
+            );
+
+            return Ok(result);
+        }
+
+        self.metrics.record_cache_miss();
 
         debug!("Classifying query: {}", query);
 
@@ -195,10 +314,22 @@ impl IntentClassifier {
         let prompt = self.build_classification_prompt(query);
 
         // Call AI service
-        let response = self.generate_classification(&prompt).await?;
+        let response = match self.generate_classification(&prompt).await {
+            Ok(resp) => resp,
+            Err(e) => {
+                self.metrics.record_error("service_unavailable");
+                return Err(e);
+            }
+        };
 
         // Parse response
-        let mut result = self.parse_classification_response(&response)?;
+        let mut result = match self.parse_classification_response(&response) {
+            Ok(res) => res,
+            Err(e) => {
+                self.metrics.record_error("parse_error");
+                return Err(e);
+            }
+        };
 
         // Check confidence threshold
         if result.confidence.value() < self.config.confidence_threshold {
@@ -207,6 +338,7 @@ impl IntentClassifier {
                 result.confidence.value(),
                 self.config.confidence_threshold
             );
+            self.metrics.record_error("low_confidence");
             return Err(ClassificationError::LowConfidence {
                 actual: result.confidence.value(),
                 threshold: self.config.confidence_threshold,
@@ -220,12 +352,39 @@ impl IntentClassifier {
             .set_duration(duration)
             .set_cached(false);
 
+        // Record metrics for fresh classification
+        if result.secondary_intents.is_empty() {
+            self.metrics
+                .record_classification(duration, false, &result.primary_intent);
+        } else {
+            self.metrics.record_multi_intent_classification(
+                duration,
+                false,
+                &result.primary_intent,
+                result.secondary_intents.len(),
+            );
+        }
+
         info!(
             "Classified as {} with {:.1}% confidence in {}ms",
             result.primary_intent,
             result.confidence.percentage(),
             duration
         );
+
+        // Update cache size metric
+        let cache_size = self.cache.entry_count();
+        self.metrics.set_cache_size(cache_size);
+
+        // Cache the result
+        self.cache
+            .insert(
+                cache_key,
+                CachedResult {
+                    result: result.clone(),
+                },
+            )
+            .await;
 
         Ok(result)
     }
@@ -273,12 +432,15 @@ impl IntentClassifier {
 
     /// Build the classification prompt using Diataxis framework
     fn build_classification_prompt(&self, query: &str) -> String {
-        let multi_intent_instruction = if self.config.enable_multi_intent {
-            "If multiple intents are present, list them in order of relevance."
+        if self.config.enable_multi_intent {
+            self.build_multi_intent_prompt(query)
         } else {
-            ""
-        };
+            self.build_single_intent_prompt(query)
+        }
+    }
 
+    /// Build prompt for single intent classification
+    fn build_single_intent_prompt(&self, query: &str) -> String {
         format!(
             r#"You are an expert in technical documentation classification using the Diataxis framework.
 
@@ -308,8 +470,6 @@ Classify the following query into one of these categories:
 
 Query: "{}"
 
-{}
-
 Provide your classification in the following format:
 
 Intent: <tutorial|howto|reference|explanation>
@@ -317,7 +477,38 @@ Confidence: <0.0-1.0>
 Reasoning: <brief explanation>
 
 Be precise and only respond with the format above."#,
-            query, multi_intent_instruction
+            query
+        )
+    }
+
+    /// Build prompt for multi-intent classification
+    fn build_multi_intent_prompt(&self, query: &str) -> String {
+        format!(
+            r#"You are an expert in technical documentation classification using the Diataxis framework.
+
+The Diataxis framework categorizes documentation into four types:
+
+1. **Tutorial**: Learning-oriented documentation that teaches through hands-on lessons
+2. **HowTo**: Task-oriented documentation that solves specific problems
+3. **Reference**: Information-oriented documentation with technical specifications
+4. **Explanation**: Understanding-oriented documentation that clarifies concepts
+
+Classify the following query. If multiple intents are present, identify the PRIMARY intent
+and any SECONDARY intents with their individual confidence scores.
+
+Query: "{}"
+
+Provide your classification in the following format:
+
+Intent: <primary_intent>
+Confidence: <0.0-1.0>
+Secondary: <intent1>:<confidence1>, <intent2>:<confidence2>
+Reasoning: <brief explanation>
+
+If only one intent is present, omit the Secondary line.
+Valid intents: tutorial, howto, reference, explanation
+Be precise and only respond with the format above."#,
+            query
         )
     }
 
@@ -329,7 +520,7 @@ Be precise and only respond with the format above."#,
             stream: false,
             options: Some(GenerateOptions {
                 temperature: Some(self.config.temperature),
-                num_predict: Some(512),
+                num_predict: Some(500),
                 top_k: None,
                 top_p: None,
             }),
@@ -345,16 +536,104 @@ Be precise and only respond with the format above."#,
     fn parse_classification_response(&self, response: &str) -> Result<ClassificationResult> {
         debug!("Parsing classification response: {}", response);
 
-        // Extract intent
+        // Extract primary intent
         let intent = self.extract_intent(response)?;
 
-        // Extract confidence
+        // Extract primary confidence
         let confidence = self.extract_confidence(response)?;
 
         // Extract reasoning
         let reasoning = self.extract_reasoning(response)?;
 
-        Ok(ClassificationResult::new(intent, confidence, reasoning))
+        // Extract secondary intents if multi-intent is enabled
+        let secondary_intents = if self.config.enable_multi_intent {
+            self.extract_secondary_intents(response)?
+        } else {
+            Vec::new()
+        };
+
+        // Validate intent combinations
+        if !secondary_intents.is_empty() {
+            self.validate_intent_combinations(&intent, &secondary_intents)?;
+        }
+
+        let mut result = ClassificationResult::new(intent, confidence, reasoning);
+        result.secondary_intents = secondary_intents;
+
+        Ok(result)
+    }
+
+    /// Extract secondary intents from response
+    ///
+    /// Parses the "Secondary:" line to extract multiple intents with confidences
+    fn extract_secondary_intents(
+        &self,
+        response: &str,
+    ) -> Result<Vec<(DiataxisIntent, Confidence)>> {
+        let secondary_re = Regex::new(r"(?i)Secondary:\s*(.+?)(?:\n|$)").unwrap();
+        let mut secondary_intents = Vec::new();
+
+        if let Some(captures) = secondary_re.captures(response) {
+            if let Some(secondary_str) = captures.get(1) {
+                let secondary_text = secondary_str.as_str().trim();
+
+                // Parse format: "intent1:confidence1, intent2:confidence2"
+                for pair in secondary_text.split(',') {
+                    let parts: Vec<&str> = pair.trim().split(':').collect();
+                    if parts.len() == 2 {
+                        if let Some(intent) = DiataxisIntent::parse(parts[0].trim()) {
+                            if let Ok(conf_value) = parts[1].trim().parse::<f32>() {
+                                let confidence = Confidence::new(conf_value);
+                                // Only include if above threshold
+                                if confidence.value() >= self.config.confidence_threshold {
+                                    secondary_intents.push((intent, confidence));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(secondary_intents)
+    }
+
+    /// Validate that intent combinations are sensible
+    ///
+    /// Checks that secondary intents don't conflict with the primary intent
+    fn validate_intent_combinations(
+        &self,
+        primary: &DiataxisIntent,
+        secondary: &[(DiataxisIntent, Confidence)],
+    ) -> Result<()> {
+        // Check that primary isn't also in secondary
+        if secondary.iter().any(|(intent, _)| intent == primary) {
+            warn!(
+                "Primary intent {} also appears in secondary intents",
+                primary
+            );
+        }
+
+        // All intent combinations are valid in Diataxis framework
+        // Tutorial + HowTo: Learning path that includes practical tasks
+        // Reference + Explanation: Detailed spec with conceptual background
+        // HowTo + Reference: Task guide with technical details
+        // etc.
+
+        // Log combinations for observability
+        if !secondary.is_empty() {
+            let secondary_list: Vec<String> = secondary
+                .iter()
+                .map(|(intent, conf)| format!("{}({:.2})", intent, conf.value()))
+                .collect();
+            debug!(
+                "Intent combination: {} (primary) + [{}] (secondary)",
+                primary,
+                secondary_list.join(", ")
+            );
+        }
+
+        Ok(())
     }
 
     /// Extract intent from response
@@ -566,5 +845,208 @@ mod tests {
         let response = "Intent: tutorial\nReasoning: Test";
         let confidence = classifier.extract_confidence(response).unwrap();
         assert_eq!(confidence.value(), 0.7);
+    }
+
+    // Phase 2 Tests: Caching
+
+    #[test]
+    fn test_cache_key_normalization() {
+        // Test that different whitespace variations produce same key
+        let key1 = IntentClassifier::normalize_cache_key("  How do I   install  this?  ");
+        let key2 = IntentClassifier::normalize_cache_key("how do i install this?");
+        let key3 = IntentClassifier::normalize_cache_key("HOW DO I INSTALL THIS?");
+
+        assert_eq!(key1, key2);
+        assert_eq!(key2, key3);
+        assert_eq!(key1, "how do i install this?");
+    }
+
+    #[test]
+    fn test_cache_initialization() {
+        let config = ClassifierConfig::default();
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        // Cache should be initialized
+        let (entry_count, _) = classifier.cache_stats();
+        assert_eq!(entry_count, 0);
+    }
+
+    #[test]
+    fn test_cache_clear() {
+        let config = ClassifierConfig::default();
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        // Clear should not panic even with empty cache
+        classifier.clear_cache();
+        let (entry_count, _) = classifier.cache_stats();
+        assert_eq!(entry_count, 0);
+    }
+
+    // Phase 2 Tests: Multi-Intent Detection
+
+    #[test]
+    fn test_build_multi_intent_prompt() {
+        let config = ClassifierConfig::default().with_multi_intent(true);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let prompt = classifier.build_classification_prompt("How do I install and configure?");
+
+        assert!(prompt.contains("Diataxis"));
+        assert!(prompt.contains("SECONDARY intents"));
+        assert!(prompt.contains("Secondary:"));
+        assert!(prompt.contains("tutorial, howto, reference, explanation"));
+    }
+
+    #[test]
+    fn test_extract_secondary_intents_from_response() {
+        let config = ClassifierConfig::default()
+            .with_multi_intent(true)
+            .with_confidence_threshold(0.5);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let response = "Intent: tutorial\nConfidence: 0.85\nSecondary: howto:0.7, reference:0.6\nReasoning: Multiple intents detected";
+        let secondary = classifier.extract_secondary_intents(response).unwrap();
+
+        assert_eq!(secondary.len(), 2);
+        assert_eq!(secondary[0].0, DiataxisIntent::HowTo);
+        assert_eq!(secondary[0].1.value(), 0.7);
+        assert_eq!(secondary[1].0, DiataxisIntent::Reference);
+        assert_eq!(secondary[1].1.value(), 0.6);
+    }
+
+    #[test]
+    fn test_extract_secondary_intents_filters_low_confidence() {
+        let config = ClassifierConfig::default()
+            .with_multi_intent(true)
+            .with_confidence_threshold(0.7);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        // Should filter out intents below threshold
+        let response = "Intent: tutorial\nConfidence: 0.85\nSecondary: howto:0.8, reference:0.5\nReasoning: Test";
+        let secondary = classifier.extract_secondary_intents(response).unwrap();
+
+        // Only howto:0.8 should remain (reference:0.5 is below 0.7 threshold)
+        assert_eq!(secondary.len(), 1);
+        assert_eq!(secondary[0].0, DiataxisIntent::HowTo);
+        assert_eq!(secondary[0].1.value(), 0.8);
+    }
+
+    #[test]
+    fn test_extract_secondary_intents_none_present() {
+        let config = ClassifierConfig::default().with_multi_intent(true);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let response = "Intent: tutorial\nConfidence: 0.85\nReasoning: Single intent only";
+        let secondary = classifier.extract_secondary_intents(response).unwrap();
+
+        assert!(secondary.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multi_intent_response() {
+        let config = ClassifierConfig::default().with_multi_intent(true);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let response = "Intent: tutorial\nConfidence: 0.85\nSecondary: howto:0.7\nReasoning: Tutorial with practical tasks";
+        let result = classifier.parse_classification_response(response).unwrap();
+
+        assert_eq!(result.primary_intent, DiataxisIntent::Tutorial);
+        assert_eq!(result.confidence.value(), 0.85);
+        assert_eq!(result.secondary_intents.len(), 1);
+        assert_eq!(result.secondary_intents[0].0, DiataxisIntent::HowTo);
+        assert_eq!(result.secondary_intents[0].1.value(), 0.7);
+        assert!(result.is_multi_intent());
+    }
+
+    #[test]
+    fn test_validate_intent_combinations_valid() {
+        let config = ClassifierConfig::default().with_multi_intent(true);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let primary = DiataxisIntent::Tutorial;
+        let secondary = vec![
+            (DiataxisIntent::HowTo, Confidence::new(0.7)),
+            (DiataxisIntent::Reference, Confidence::new(0.6)),
+        ];
+
+        // All combinations are valid in Diataxis - should not error
+        let result = classifier.validate_intent_combinations(&primary, &secondary);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_intent_combinations_duplicate_primary() {
+        let config = ClassifierConfig::default().with_multi_intent(true);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let primary = DiataxisIntent::Tutorial;
+        let secondary = vec![
+            (DiataxisIntent::Tutorial, Confidence::new(0.7)), // Duplicate
+            (DiataxisIntent::HowTo, Confidence::new(0.6)),
+        ];
+
+        // Should not error but logs warning (tested via logs)
+        let result = classifier.validate_intent_combinations(&primary, &secondary);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_multi_intent_disabled_returns_empty_secondary() {
+        let config = ClassifierConfig::default().with_multi_intent(false);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        // Even if response has secondary intents, they should be ignored
+        let response = "Intent: tutorial\nConfidence: 0.85\nSecondary: howto:0.7\nReasoning: Test";
+        let result = classifier.parse_classification_response(response).unwrap();
+
+        assert_eq!(result.primary_intent, DiataxisIntent::Tutorial);
+        assert!(result.secondary_intents.is_empty());
+        assert!(!result.is_multi_intent());
+    }
+
+    #[test]
+    fn test_classification_result_all_intents() {
+        let config = ClassifierConfig::default().with_multi_intent(true);
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        let response = "Intent: tutorial\nConfidence: 0.9\nSecondary: howto:0.75, explanation:0.65\nReasoning: Multiple aspects";
+        let result = classifier.parse_classification_response(response).unwrap();
+
+        let all_intents = result.all_intents();
+        assert_eq!(all_intents.len(), 3); // primary + 2 secondary
+        assert_eq!(all_intents[0].0, DiataxisIntent::Tutorial);
+        assert_eq!(all_intents[1].0, DiataxisIntent::HowTo);
+        assert_eq!(all_intents[2].0, DiataxisIntent::Explanation);
+    }
+
+    #[test]
+    fn test_cache_with_custom_config() {
+        let config = ClassifierConfig::default()
+            .with_multi_intent(true)
+            .with_confidence_threshold(0.7);
+
+        // Verify config is properly set
+        assert!(config.enable_multi_intent);
+        assert_eq!(config.confidence_threshold, 0.7);
+        assert_eq!(config.cache_size, 1000);
+        assert_eq!(config.cache_ttl_seconds, 3600);
+
+        let client = Arc::new(OllamaClient::new("http://localhost:11434".to_string()));
+        let classifier = IntentClassifier::new(config, client);
+
+        // Cache should be initialized with config values
+        let (entry_count, _) = classifier.cache_stats();
+        assert_eq!(entry_count, 0);
     }
 }

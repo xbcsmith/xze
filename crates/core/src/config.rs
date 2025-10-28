@@ -1,6 +1,6 @@
 //! Configuration types for XZe core library
 
-use crate::{types::RepositoryId, Result};
+use crate::{ai::ClassifierConfig, types::RepositoryId, Result};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf};
 use url::Url;
@@ -20,6 +20,9 @@ pub struct XzeConfig {
     pub generation: GenerationConfig,
     /// Pull request settings
     pub pr: PullRequestConfig,
+    /// Intent classifier settings
+    #[serde(default)]
+    pub classifier: ClassifierConfig,
     /// Logging configuration
     #[serde(default)]
     pub logging: LoggingConfig,
@@ -40,6 +43,7 @@ impl Default for XzeConfig {
             ollama: OllamaConfig::default(),
             generation: GenerationConfig::default(),
             pr: PullRequestConfig::default(),
+            classifier: ClassifierConfig::default(),
             logging: LoggingConfig::default(),
             filesystem: FileSystemConfig::default(),
             git: GitConfig::default(),

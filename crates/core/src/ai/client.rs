@@ -37,6 +37,11 @@ impl OllamaClient {
         Self { client, base_url }
     }
 
+    /// Get the base URL of the Ollama server
+    pub fn base_url(&self) -> &str {
+        &self.base_url
+    }
+
     /// Check if Ollama server is accessible
     pub async fn health_check(&self) -> Result<bool> {
         let url = format!("{}/api/tags", self.base_url);
