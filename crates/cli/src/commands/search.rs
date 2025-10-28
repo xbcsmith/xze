@@ -64,7 +64,7 @@ pub struct SearchArgs {
     /// Only search within documents of the specified category.
     /// Categories follow the Diataxis framework: tutorial, how_to,
     /// explanation, reference.
-    #[arg(short = 'c', long)]
+    #[arg(long)]
     pub category: Option<String>,
 
     /// Ollama API URL

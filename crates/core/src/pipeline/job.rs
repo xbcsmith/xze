@@ -204,6 +204,9 @@ pub struct JobConfig {
     pub create_prs: bool,
     /// Documentation categories to generate
     pub doc_categories: Vec<String>,
+    /// Intent filter for documentation generation
+    #[serde(default)]
+    pub intent_filter: Vec<String>,
     /// Custom job parameters
     pub parameters: HashMap<String, String>,
 }
@@ -222,6 +225,7 @@ impl Default for JobConfig {
                 "reference".to_string(),
                 "explanation".to_string(),
             ],
+            intent_filter: Vec::new(),
             parameters: HashMap::new(),
         }
     }

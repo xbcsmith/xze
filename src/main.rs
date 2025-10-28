@@ -107,6 +107,9 @@ enum Commands {
         config: PathBuf,
     },
 
+    /// Classify query intent using Diataxis framework
+    Classify(xze_cli::ClassifyCommand),
+
     /// Show version information
     Version,
 
@@ -177,11 +180,16 @@ async fn main() -> Result<()> {
         }
 
         Some(Commands::Validate { ref config }) => {
-            handle_validate(config.clone(), &cli).await?;
+            handle_validate(config, &cli).await?;
+        }
+
+        Some(Commands::Classify(ref cmd)) => {
+            use xze_cli::CliCommand;
+            cmd.execute().await?;
         }
 
         Some(Commands::Version) => {
-            handle_version(&cli).await?;
+            handle_version().await?;
         }
 
         Some(Commands::Health) => {
@@ -377,7 +385,7 @@ async fn handle_init(config_path: PathBuf, interactive: bool, _cli: &Cli) -> Res
     Ok(())
 }
 
-async fn handle_validate(config_path: PathBuf, cli: &Cli) -> Result<()> {
+async fn handle_validate(config_path: &PathBuf, cli: &Cli) -> Result<()> {
     info!("Validating configuration at {:?}", config_path);
 
     if !config_path.exists() {
@@ -387,7 +395,7 @@ async fn handle_validate(config_path: PathBuf, cli: &Cli) -> Result<()> {
         )));
     }
 
-    let config = xze_core::XzeConfig::from_file(&config_path)?;
+    let config = xze_core::XzeConfig::from_file(config_path)?;
 
     // Validate configuration
     match config.validate() {
@@ -427,7 +435,7 @@ async fn handle_validate(config_path: PathBuf, cli: &Cli) -> Result<()> {
     Ok(())
 }
 
-async fn handle_version(_cli: &Cli) -> Result<()> {
+async fn handle_version() -> Result<()> {
     println!("{}", xze_core::version_info());
     println!();
     println!("Build info:");

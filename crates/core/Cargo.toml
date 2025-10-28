@@ -53,6 +53,9 @@ url = "2.4"
 glob = "0.3"
 regex = "1.10"
 
+# Caching (Phase 2: Multi-Intent Detection)
+moka = { version = "0.12", features = ["future"] }
+
 # Cryptographic hashing
 sha2 = "0.10"
 
@@ -84,12 +87,23 @@ tokio-test = "0.4"
 mockito = "1.2"
 assert_matches = "1.5"
 testcontainers = "0.15"
+criterion = { version = "0.5", features = ["async_tokio"] }
 
 [features]
 default = ["ollama"]
 ollama = []
 openai = ["async-openai"]
+metrics = ["prometheus"]
 
 [dependencies.async-openai]
 version = "0.14"
 optional = true
+
+[dependencies.prometheus]
+version = "0.13"
+optional = true
+default-features = false
+
+[[bench]]
+name = "intent_classification_bench"
+harness = false

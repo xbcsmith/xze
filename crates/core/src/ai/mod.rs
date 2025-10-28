@@ -7,19 +7,23 @@ use std::sync::Arc;
 pub mod client;
 pub mod confidence;
 pub mod context;
+pub mod health;
 pub mod intent_classifier;
 pub mod intent_types;
+pub mod metrics;
 pub mod prompts;
 pub mod validator;
 
 pub use client::OllamaClient;
 pub use confidence::{ConfidenceScore, ConfidenceScorer, DocumentType, ScoringContext};
 pub use context::{ContextManager, PromptComponent, TokenBudget};
+pub use health::{CacheHealth, HealthCheck, HealthCheckResult, HealthStatus, ServiceHealth};
 pub use intent_classifier::{ClassifierConfig, IntentClassifier};
 pub use intent_types::{
     ClassificationError, ClassificationMetadata, ClassificationResult, Confidence, ConfidenceLevel,
     DiataxisIntent,
 };
+pub use metrics::ClassifierMetrics;
 pub use prompts::PromptTemplateLibrary;
 pub use validator::{ResponseValidator, ValidationResult};
 
@@ -33,6 +37,7 @@ pub struct AIAnalysisService {
     confidence_scorer: ConfidenceScorer,
     context_manager: ContextManager,
     retry_attempts: u32,
+    intent_classifier: Option<IntentClassifier>,
 }
 
 impl AIAnalysisService {
@@ -48,6 +53,7 @@ impl AIAnalysisService {
             confidence_scorer: ConfidenceScorer::new(),
             context_manager,
             retry_attempts: 3,
+            intent_classifier: None,
         }
     }
 
@@ -67,6 +73,56 @@ impl AIAnalysisService {
     pub fn with_retry_attempts(mut self, attempts: u32) -> Self {
         self.retry_attempts = attempts;
         self
+    }
+
+    /// Enable intent classification with the given configuration
+    pub fn with_intent_classifier(mut self, config: ClassifierConfig) -> Self {
+        self.intent_classifier = Some(IntentClassifier::new(config, Arc::clone(&self.client)));
+        self
+    }
+
+    /// Classify a query to determine its documentation intent
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - The query or code context to classify
+    ///
+    /// # Returns
+    ///
+    /// Returns a `ClassificationResult` containing the primary intent, confidence,
+    /// and optionally secondary intents if multi-intent detection is enabled.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Intent classifier is not enabled
+    /// - Classification fails
+    /// - AI service is unavailable
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use xze_core::ai::{AIAnalysisService, ClassifierConfig};
+    /// use xze_core::config::ModelConfig;
+    ///
+    /// # async fn example() -> xze_core::Result<()> {
+    /// let service = AIAnalysisService::new(
+    ///     "http://localhost:11434".to_string(),
+    ///     ModelConfig::default()
+    /// ).with_intent_classifier(ClassifierConfig::default())?;
+    ///
+    /// let result = service.classify_query("How do I install this library?").await?;
+    /// println!("Intent: {:?}", result.primary_intent);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn classify_query(&self, query: &str) -> Result<ClassificationResult> {
+        let classifier = self
+            .intent_classifier
+            .as_ref()
+            .ok_or_else(|| XzeError::validation("Intent classifier not enabled"))?;
+
+        classifier.classify(query).await
     }
 
     /// Analyze code structure and generate summary with validation
