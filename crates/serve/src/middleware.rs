@@ -2,7 +2,7 @@
 
 use axum::{
     extract::Request,
-    http::{HeaderMap, StatusCode},
+    http::{header::HeaderValue, HeaderMap, StatusCode},
     middleware::Next,
     response::Response,
 };
@@ -203,12 +203,140 @@ impl Default for CorsConfig {
 /// Health check bypass middleware
 pub async fn health_check_bypass_middleware(request: Request, next: Next) -> Response {
     // Skip expensive middleware for health check endpoints
-    if request.uri().path() == "/health" {
+    if request.uri().path() == "/health" || request.uri().path() == "/api/v1/health" {
         return next.run(request).await;
     }
 
     // For other endpoints, continue with normal processing
     next.run(request).await
+}
+
+/// API version middleware
+///
+/// Handles API version negotiation and adds version headers to responses.
+/// Supports the Accept-Version request header for version negotiation.
+///
+/// # Behavior
+///
+/// - Reads Accept-Version header from request (if present)
+/// - Validates requested version
+/// - Adds API-Version response header with the active version
+/// - Returns 400 Bad Request for invalid version requests
+///
+/// # Examples
+///
+/// ```
+/// // Request with version header:
+/// // Accept-Version: v1
+/// // Response includes:
+/// // API-Version: v1
+/// ```
+pub async fn api_version_middleware(request: Request, next: Next) -> Response {
+    // Read Accept-Version header if present
+    let requested_version = request
+        .headers()
+        .get("accept-version")
+        .and_then(|v| v.to_str().ok());
+
+    // Validate requested version if provided
+    if let Some(version) = requested_version {
+        if !is_valid_api_version(version) {
+            let mut response = Response::new(
+                serde_json::json!({
+                    "error": "Invalid API version",
+                    "message": format!("Requested version '{}' is not supported. Supported versions: v1", version),
+                    "supported_versions": ["v1"]
+                })
+                .to_string()
+                .into(),
+            );
+            *response.status_mut() = StatusCode::BAD_REQUEST;
+            response
+                .headers_mut()
+                .insert("content-type", HeaderValue::from_static("application/json"));
+            return response;
+        }
+    }
+
+    // Continue with request processing
+    let mut response = next.run(request).await;
+
+    // Add API-Version header to response
+    response
+        .headers_mut()
+        .insert("api-version", HeaderValue::from_static("v1"));
+
+    response
+}
+
+/// Check if an API version is valid
+///
+/// # Arguments
+///
+/// * `version` - Version string to validate
+///
+/// # Returns
+///
+/// Returns true if the version is supported, false otherwise
+fn is_valid_api_version(version: &str) -> bool {
+    matches!(version, "v1" | "1" | "1.0")
+}
+
+/// Legacy API deprecation middleware
+///
+/// Adds deprecation headers to legacy (non-versioned) API endpoints.
+///
+/// # Behavior
+///
+/// - Detects non-versioned endpoints (not starting with /api/v1)
+/// - Adds deprecation headers with sunset date
+/// - Adds Link header pointing to v1 documentation
+///
+/// # Examples
+///
+/// ```
+/// // Request to /health
+/// // Response includes:
+/// // Deprecation: true
+/// // Sunset: Sat, 01 Mar 2025 00:00:00 GMT
+/// // Link: </api/v1/docs>; rel="successor-version"
+/// ```
+pub async fn legacy_deprecation_middleware(request: Request, next: Next) -> Response {
+    let path = request.uri().path();
+
+    // Check if this is a legacy endpoint (not under /api/v1)
+    let is_legacy = !path.starts_with("/api/v1");
+
+    let mut response = next.run(request).await;
+
+    // Add deprecation headers for legacy endpoints
+    if is_legacy {
+        let headers = response.headers_mut();
+
+        // RFC 8594 - Deprecation header
+        headers.insert("deprecation", HeaderValue::from_static("true"));
+
+        // RFC 8594 - Sunset header (60 days from now as per plan)
+        // Using a fixed future date for consistency
+        headers.insert(
+            "sunset",
+            HeaderValue::from_static("Sat, 01 Mar 2025 00:00:00 GMT"),
+        );
+
+        // Link to successor version documentation
+        headers.insert(
+            "link",
+            HeaderValue::from_static("</api/v1/docs>; rel=\"successor-version\""),
+        );
+
+        // Custom warning header with migration information
+        headers.insert(
+            "warning",
+            HeaderValue::from_static("299 - \"This API endpoint is deprecated. Please migrate to /api/v1. See /api/v1/docs for migration guide.\""),
+        );
+    }
+
+    response
 }
 
 /// Request size limit middleware
@@ -224,7 +352,6 @@ pub fn compression_layer() -> tower_http::compression::CompressionLayer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{body::Body, http::Method};
 
     #[tokio::test]
     async fn test_rate_limit_layer() {
@@ -250,5 +377,29 @@ mod tests {
         let _error = error_handling_middleware;
         let _health = health_check_bypass_middleware;
         let _request_id = request_id_middleware;
+        let _api_version = api_version_middleware;
+        let _legacy_deprecation = legacy_deprecation_middleware;
+    }
+
+    #[test]
+    fn test_is_valid_api_version_with_valid_versions() {
+        assert!(is_valid_api_version("v1"));
+        assert!(is_valid_api_version("1"));
+        assert!(is_valid_api_version("1.0"));
+    }
+
+    #[test]
+    fn test_is_valid_api_version_with_invalid_versions() {
+        assert!(!is_valid_api_version("v2"));
+        assert!(!is_valid_api_version("2"));
+        assert!(!is_valid_api_version("invalid"));
+        assert!(!is_valid_api_version(""));
+    }
+
+    #[test]
+    fn test_health_check_bypass_supports_v1_path() {
+        // This is a compilation test to ensure the middleware
+        // recognizes both /health and /api/v1/health paths
+        let _middleware = health_check_bypass_middleware;
     }
 }

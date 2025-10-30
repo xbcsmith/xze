@@ -11,6 +11,10 @@ description = "Web server interface for XZe Pipeline Documentation Tool"
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+default = []
+openapi = ["dep:utoipa", "dep:utoipa-swagger-ui"]
+
 [dependencies]
 xze-core = { path = "../core" }
 
@@ -28,6 +32,9 @@ serde_yaml = { workspace = true }
 # HTTP client
 reqwest = { workspace = true }
 
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres"] }
+
 # Logging
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -44,6 +51,10 @@ chrono = { workspace = true }
 
 # Configuration
 config = { workspace = true }
+
+# OpenAPI (optional)
+utoipa = { version = "4.2", features = ["axum_extras", "chrono", "uuid"], optional = true }
+utoipa-swagger-ui = { version = "6.0", features = ["axum"], optional = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
