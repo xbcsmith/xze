@@ -7,9 +7,11 @@ use xze_core::Result;
 pub mod api;
 pub mod handlers;
 pub mod middleware;
+pub mod search;
 pub mod server;
 
 pub use handlers::*;
+pub use search::search_routes;
 pub use server::*;
 
 /// Server version information
@@ -21,6 +23,7 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub ollama_url: String,
+    pub database_url: String,
     pub cors_enabled: bool,
     pub max_request_size: usize,
 }
@@ -31,6 +34,7 @@ impl Default for ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 3000,
             ollama_url: "http://localhost:11434".to_string(),
+            database_url: "postgresql://localhost/xze".to_string(),
             cors_enabled: true,
             max_request_size: 10 * 1024 * 1024, // 10MB
         }

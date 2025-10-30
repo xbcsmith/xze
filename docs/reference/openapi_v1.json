@@ -1,0 +1,871 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "XZe API",
+    "description": "AI-powered documentation generator API - Version 1",
+    "contact": {
+      "name": "XZe Project",
+      "url": "https://github.com/xbcsmith/xze"
+    },
+    "license": {
+      "name": "MIT OR Apache-2.0",
+      "url": "https://github.com/xbcsmith/xze"
+    },
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/api/v1",
+      "description": "API v1 base path"
+    }
+  ],
+  "paths": {
+    "/api/v1/analyze": {
+      "post": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Analyze repository endpoint",
+        "description": "Queues a repository for AI-powered documentation analysis\n\n# Arguments\n\n* `request` - Repository analysis request containing URL, branch, and language\n\n# Returns\n\nReturns a job ID and status for tracking the analysis\n\n# Examples\n\n```\n// POST /api/v1/analyze\n// Body: {\"repository_url\":\"https://github.com/user/repo\",\"branch\":\"main\"}\n// Returns: {\"job_id\":\"...\",\"status\":\"queued\",\"message\":\"...\"}\n```",
+        "operationId": "analyze_repository",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Analysis job queued successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters"
+          }
+        }
+      }
+    },
+    "/api/v1/documentation": {
+      "get": {
+        "tags": [
+          "documentation"
+        ],
+        "summary": "List documentation endpoint",
+        "description": "Returns a list of generated documentation\n\n# Returns\n\nReturns a list of documentation items\n\n# Examples\n\n```\n// GET /api/v1/documentation\n// Returns: {\"documents\":[...],\"total\":0}\n```",
+        "operationId": "list_documentation",
+        "responses": {
+          "200": {
+            "description": "List of documentation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentationListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documentation/{id}": {
+      "get": {
+        "tags": [
+          "documentation"
+        ],
+        "summary": "Get documentation by ID",
+        "description": "Retrieves a specific documentation item\n\n# Arguments\n\n* `id` - Documentation ID\n\n# Returns\n\nReturns documentation details or 404 if not found\n\n# Examples\n\n```\n// GET /api/v1/documentation/xyz789\n// Returns: documentation content or 404\n```",
+        "operationId": "get_documentation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Documentation unique identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documentation content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentationInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Documentation not found"
+          }
+        }
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health check endpoint for API v1",
+        "description": "# Returns\n\nReturns a JSON response with service health status\n\n# Examples\n\n```\nuse axum::http::StatusCode;\n// GET /api/v1/health\n// Returns: {\"status\":\"healthy\",\"version\":\"...\",\"timestamp\":\"...\"}\n```",
+        "operationId": "health_check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/repositories": {
+      "get": {
+        "tags": [
+          "repositories"
+        ],
+        "summary": "List repositories endpoint",
+        "description": "Returns a paginated list of repositories\n\n# Arguments\n\n* `params` - Query parameters for pagination and filtering\n\n# Returns\n\nReturns a list of repositories with pagination metadata\n\n# Examples\n\n```\n// GET /api/v1/repositories?page=1&per_page=10\n// Returns: {\"repositories\":[...],\"total\":0,\"page\":1,\"per_page\":10}\n```",
+        "operationId": "list_repositories",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (default: 1)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page (default: 10, max: 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of repositories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryListResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/repositories/{id}": {
+      "get": {
+        "tags": [
+          "repositories"
+        ],
+        "summary": "Get repository by ID",
+        "description": "Retrieves detailed information about a specific repository\n\n# Arguments\n\n* `id` - Repository ID\n\n# Returns\n\nReturns repository details or 404 if not found\n\n# Examples\n\n```\n// GET /api/v1/repositories/abc123\n// Returns: {\"repository\":{...}} or 404\n```",
+        "operationId": "get_repository",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Repository unique identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryInfo"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        }
+      }
+    },
+    "/api/v1/repositories/{id}/analyze": {
+      "post": {
+        "tags": [
+          "analysis"
+        ],
+        "summary": "Analyze repository by ID",
+        "description": "Queues an existing repository for re-analysis\n\n# Arguments\n\n* `id` - Repository ID\n\n# Returns\n\nReturns a job ID and status for tracking the analysis\n\n# Examples\n\n```\n// POST /api/v1/repositories/abc123/analyze\n// Returns: {\"job_id\":\"...\",\"status\":\"queued\",\"message\":\"...\"}\n```",
+        "operationId": "analyze_repository_by_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Repository unique identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Re-analysis job queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Handler for semantic search",
+        "operationId": "handle_search",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query text",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "max_results",
+            "in": "query",
+            "description": "Maximum number of results (default: 10)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "nullable": true,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "min_similarity",
+            "in": "query",
+            "description": "Minimum similarity threshold 0.0-1.0 (default: 0.0)",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "nullable": true
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "description": "Filter by documentation category (tutorial, how-to, reference, explanation)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results with similarity scores",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid search parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal search error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Failed to generate embedding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/version": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get API version information",
+        "description": "# Returns\n\nReturns version details including API version, commit hash, and build date\n\n# Examples\n\n```\n// GET /api/v1/version\n// Returns: {\"version\":\"...\",\"api_version\":\"v1\",\"build_info\":{...}}\n```",
+        "operationId": "get_version",
+        "responses": {
+          "200": {
+            "description": "Version information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalyzeRequest": {
+        "type": "object",
+        "description": "Repository analysis request",
+        "required": [
+          "repository_url"
+        ],
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "Branch to analyze (defaults to main/master)",
+            "example": "main",
+            "nullable": true
+          },
+          "language": {
+            "type": "string",
+            "description": "Primary language (auto-detected if not provided)",
+            "example": "rust",
+            "nullable": true
+          },
+          "repository_url": {
+            "type": "string",
+            "description": "Repository URL (https or git)",
+            "example": "https://github.com/xbcsmith/xze"
+          }
+        }
+      },
+      "AnalyzeResponse": {
+        "type": "object",
+        "description": "Analysis response",
+        "required": [
+          "job_id",
+          "status",
+          "message"
+        ],
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "description": "Unique job identifier",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable message",
+            "example": "Analysis queued for repository"
+          },
+          "status": {
+            "type": "string",
+            "description": "Job status (queued, processing, completed, failed)",
+            "example": "queued"
+          }
+        }
+      },
+      "BuildInfo": {
+        "type": "object",
+        "description": "Build information",
+        "required": [
+          "commit",
+          "build_date"
+        ],
+        "properties": {
+          "build_date": {
+            "type": "string",
+            "description": "Build timestamp",
+            "example": "2024-01-15T10:30:00Z"
+          },
+          "commit": {
+            "type": "string",
+            "description": "Git commit hash",
+            "example": "abc123def456"
+          }
+        }
+      },
+      "DocumentationInfo": {
+        "type": "object",
+        "description": "Documentation information",
+        "required": [
+          "id",
+          "title",
+          "category",
+          "repository_id",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Document category (tutorial, how-to, reference, explanation)",
+            "example": "tutorial"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "id": {
+            "type": "string",
+            "description": "Documentation ID",
+            "example": "doc-456"
+          },
+          "repository_id": {
+            "type": "string",
+            "description": "Source repository ID",
+            "example": "repo-123"
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title",
+            "example": "Getting Started Guide"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          }
+        }
+      },
+      "DocumentationListResponse": {
+        "type": "object",
+        "description": "Documentation list response",
+        "required": [
+          "documents",
+          "total"
+        ],
+        "properties": {
+          "documents": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DocumentationInfo"
+            },
+            "description": "List of documentation items"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of documents",
+            "example": 15,
+            "minimum": 0
+          }
+        }
+      },
+      "HealthResponse": {
+        "type": "object",
+        "description": "Health check response",
+        "required": [
+          "status",
+          "version",
+          "timestamp"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Service status (healthy, degraded, unhealthy)",
+            "example": "healthy"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Current timestamp"
+          },
+          "version": {
+            "type": "string",
+            "description": "Application version",
+            "example": "1.0.0"
+          }
+        }
+      },
+      "RepositoryInfo": {
+        "type": "object",
+        "description": "Repository information",
+        "required": [
+          "id",
+          "name",
+          "url",
+          "language"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Repository ID",
+            "example": "repo-123"
+          },
+          "language": {
+            "type": "string",
+            "description": "Primary language",
+            "example": "rust"
+          },
+          "last_analyzed": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last analysis timestamp",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Repository name",
+            "example": "xze"
+          },
+          "url": {
+            "type": "string",
+            "description": "Repository URL",
+            "example": "https://github.com/xbcsmith/xze"
+          }
+        }
+      },
+      "RepositoryListResponse": {
+        "type": "object",
+        "description": "Repository list response",
+        "required": [
+          "repositories",
+          "total",
+          "page",
+          "per_page"
+        ],
+        "properties": {
+          "page": {
+            "type": "integer",
+            "description": "Current page number",
+            "example": 1,
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "description": "Items per page",
+            "example": 10,
+            "minimum": 0
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryInfo"
+            },
+            "description": "List of repositories"
+          },
+          "total": {
+            "type": "integer",
+            "description": "Total number of repositories",
+            "example": 42,
+            "minimum": 0
+          }
+        }
+      },
+      "SearchConfigResponse": {
+        "type": "object",
+        "description": "Search configuration details",
+        "required": [
+          "max_results",
+          "min_similarity"
+        ],
+        "properties": {
+          "category_filter": {
+            "type": "string",
+            "description": "Category filter applied",
+            "example": "tutorial",
+            "nullable": true
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum results requested",
+            "example": 10,
+            "minimum": 0
+          },
+          "min_similarity": {
+            "type": "number",
+            "format": "float",
+            "description": "Minimum similarity threshold applied",
+            "example": 0.0
+          }
+        }
+      },
+      "SearchErrorResponse": {
+        "type": "object",
+        "description": "Search error response",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "details": {
+            "type": "string",
+            "description": "Additional error details",
+            "nullable": true
+          },
+          "error": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Query string cannot be empty"
+          }
+        }
+      },
+      "SearchQueryParams": {
+        "type": "object",
+        "description": "Search query parameters",
+        "required": [
+          "q"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Filter by documentation category",
+            "example": "tutorial",
+            "nullable": true
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum number of results to return",
+            "example": 10,
+            "nullable": true,
+            "minimum": 0
+          },
+          "min_similarity": {
+            "type": "number",
+            "format": "float",
+            "description": "Minimum similarity threshold (0.0 to 1.0)",
+            "example": 0.7,
+            "nullable": true
+          },
+          "q": {
+            "type": "string",
+            "description": "Search query text",
+            "example": "how to implement authentication"
+          }
+        }
+      },
+      "SearchResponse": {
+        "type": "object",
+        "description": "Search response with results",
+        "required": [
+          "query",
+          "results",
+          "total_results",
+          "config"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/SearchConfigResponse"
+          },
+          "query": {
+            "type": "string",
+            "description": "Original search query",
+            "example": "how to implement authentication"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResultItem"
+            },
+            "description": "List of search results ordered by similarity"
+          },
+          "total_results": {
+            "type": "integer",
+            "description": "Total number of results found",
+            "example": 5,
+            "minimum": 0
+          }
+        }
+      },
+      "SearchResultItem": {
+        "type": "object",
+        "description": "Individual search result item",
+        "required": [
+          "id",
+          "source_file",
+          "content",
+          "similarity",
+          "chunk_index",
+          "total_chunks",
+          "sentence_range",
+          "avg_chunk_similarity"
+        ],
+        "properties": {
+          "avg_chunk_similarity": {
+            "type": "number",
+            "format": "float",
+            "description": "Average similarity across all chunks in document",
+            "example": 0.82
+          },
+          "category": {
+            "type": "string",
+            "description": "Documentation category",
+            "example": "how-to",
+            "nullable": true
+          },
+          "chunk_index": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Index of this chunk within the document",
+            "example": 2
+          },
+          "content": {
+            "type": "string",
+            "description": "Content text of the matching chunk",
+            "example": "To implement authentication, first configure the JWT middleware..."
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unique identifier for this document chunk"
+          },
+          "sentence_range": {
+            "type": "array",
+            "items": {
+              "allOf": [
+                {
+                  "type": "integer",
+                  "format": "int32"
+                },
+                {
+                  "type": "integer",
+                  "format": "int32"
+                }
+              ]
+            },
+            "description": "Range of sentences in this chunk (start, end)"
+          },
+          "similarity": {
+            "type": "number",
+            "format": "float",
+            "description": "Similarity score (0.0 to 1.0, higher is better)",
+            "example": 0.87
+          },
+          "source_file": {
+            "type": "string",
+            "description": "Source file path",
+            "example": "docs/how_to/authentication.md"
+          },
+          "title": {
+            "type": "string",
+            "description": "Document title",
+            "example": "Authentication Guide",
+            "nullable": true
+          },
+          "total_chunks": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Total number of chunks in the document",
+            "example": 5
+          }
+        }
+      },
+      "VersionResponse": {
+        "type": "object",
+        "description": "Version information response",
+        "required": [
+          "version",
+          "api_version",
+          "build_info"
+        ],
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "description": "API version",
+            "example": "v1"
+          },
+          "build_info": {
+            "$ref": "#/components/schemas/BuildInfo"
+          },
+          "version": {
+            "type": "string",
+            "description": "Application version",
+            "example": "1.0.0"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "api_key": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "health",
+      "description": "Health check and system status endpoints"
+    },
+    {
+      "name": "system",
+      "description": "System information and version endpoints"
+    },
+    {
+      "name": "analysis",
+      "description": "Repository analysis and processing endpoints"
+    },
+    {
+      "name": "repositories",
+      "description": "Repository management endpoints"
+    },
+    {
+      "name": "documentation",
+      "description": "Documentation retrieval endpoints"
+    },
+    {
+      "name": "search",
+      "description": "Semantic search endpoints"
+    }
+  ]
+}
