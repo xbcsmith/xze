@@ -180,10 +180,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-      
+
       - name: Run static tests
         run: cargo test --all-features
 
@@ -205,24 +205,24 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-      
+
       - name: Run database migrations
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/xze_test
         run: |
           cargo install sqlx-cli --no-default-features --features postgres
           sqlx migrate run
-      
+
       - name: Run contract tests
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/xze_test
         run: |
           cargo test --package xze-serve --test contract_tests \
             --features openapi -- --ignored --test-threads=1
-      
+
       - name: Run versioning tests
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/xze_test

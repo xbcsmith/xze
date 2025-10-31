@@ -273,7 +273,7 @@ use serde_json::json;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-    
+
     // Legacy endpoint
     let response = client
         .post("http://api.example.com/analyze")
@@ -283,10 +283,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }))
         .send()
         .await?;
-    
+
     let data = response.json::<serde_json::Value>().await?;
     println!("{}", data);
-    
+
     Ok(())
 }
 ```
@@ -299,7 +299,7 @@ use serde_json::json;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
-    
+
     // V1 endpoint
     let response = client
         .post("http://api.example.com/api/v1/analyze")
@@ -310,15 +310,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }))
         .send()
         .await?;
-    
+
     // Check API version from response header
     if let Some(api_version) = response.headers().get("api-version") {
         println!("API Version: {:?}", api_version);
     }
-    
+
     let data = response.json::<serde_json::Value>().await?;
     println!("{}", data);
-    
+
     Ok(())
 }
 ```
@@ -493,7 +493,7 @@ Verify that v1 responses match legacy responses:
 # Legacy response
 curl http://localhost:3000/health > legacy.json
 
-# V1 response  
+# V1 response
 curl http://localhost:3000/api/v1/health > v1.json
 
 # Compare (should be identical except for headers)

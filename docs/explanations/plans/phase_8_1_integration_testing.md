@@ -318,7 +318,7 @@ async fn test_search_with_similarity_threshold() {
 
     let json: serde_json::Value = response.json();
     let results = json["results"].as_array().unwrap();
-    
+
     // All results should have similarity >= 0.9
     for result in results {
         let similarity = result["similarity"].as_f64().unwrap();
@@ -352,7 +352,7 @@ async fn test_search_with_category_filter() {
 
     let json: serde_json::Value = response.json();
     let results = json["results"].as_array().unwrap();
-    
+
     // All results should be tutorials
     for result in results {
         assert_eq!(result["category"], "tutorial");
@@ -481,7 +481,7 @@ use sqlx::PgPool;
 async fn setup_bench_db() -> PgPool {
     let database_url = std::env::var("BENCH_DATABASE_URL")
         .unwrap_or_else(|_| "postgresql://localhost/xze_bench".to_string());
-    
+
     PgPool::connect(&database_url).await.unwrap()
 }
 
@@ -574,7 +574,7 @@ async fn test_concurrent_searches() {
 
     // Spawn 100 concurrent search requests
     let mut handles = vec![];
-    
+
     for i in 0..100 {
         let server = server.clone();
         let handle = tokio::spawn(async move {
@@ -582,10 +582,10 @@ async fn test_concurrent_searches() {
                 .get("/search")
                 .add_query_param("q", &format!("test query {}", i))
                 .await;
-            
+
             assert_eq!(response.status_code(), 200);
         });
-        
+
         handles.push(handle);
     }
 
@@ -628,7 +628,7 @@ env:
 jobs:
   integration-tests:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: pgvector/pgvector:pg14
@@ -643,7 +643,7 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
-      
+
       ollama:
         image: ollama/ollama:latest
         ports:
@@ -651,36 +651,36 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    
+
     - name: Install Rust
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: stable
         override: true
-    
+
     - name: Cache cargo registry
       uses: actions/cache@v3
       with:
         path: ~/.cargo/registry
         key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
+
     - name: Setup test database
       env:
         TEST_DATABASE_URL: postgresql://postgres:postgres@localhost/xze_test
       run: |
         ./tests/setup_test_db.sh
-    
+
     - name: Pull Ollama model
       run: |
         docker exec ${{ job.services.ollama.id }} ollama pull nomic-embed-text
-    
+
     - name: Run integration tests
       env:
         TEST_DATABASE_URL: postgresql://postgres:postgres@localhost/xze_test
       run: |
         cargo test --test search_api_tests -- --nocapture
-    
+
     - name: Run benchmarks
       run: |
         cargo bench --bench search_bench -- --save-baseline main
@@ -893,6 +893,6 @@ Before moving to Phase 8.2:
 
 ---
 
-**Version**: 1.0  
-**Author**: XZe Development Team  
+**Version**: 1.0
+**Author**: XZe Development Team
 **Last Updated**: December 2024

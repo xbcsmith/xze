@@ -446,18 +446,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
-      
+
       - name: Run static contract tests
         run: cargo test --package xze-serve --test contract_tests --features openapi
-      
+
       - name: Run runtime contract tests
         env:
           DATABASE_URL: postgresql://postgres:test@localhost/xze_test
         run: cargo test --package xze-serve --test contract_tests --features openapi -- --ignored
-      
+
       - name: Run versioning tests
         env:
           DATABASE_URL: postgresql://postgres:test@localhost/xze_test

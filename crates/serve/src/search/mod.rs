@@ -53,6 +53,7 @@
 //! ```
 
 pub mod handlers;
+pub mod metrics;
 pub mod types;
 
 #[cfg(feature = "openapi")]
@@ -60,6 +61,7 @@ pub mod openapi;
 
 // Re-export commonly used types
 pub use handlers::{handle_search, handle_search_advanced, search_routes, SearchQuery};
+pub use metrics::SearchMetrics;
 pub use types::{
     AdvancedSearchRequest, AggregationRequest, AggregationResponse, CategoryCount, DateCount,
     DateRange, PaginationInfo, SearchError, SearchFilters, SearchOptions, SearchResponse,
@@ -68,6 +70,9 @@ pub use types::{
 
 #[cfg(feature = "openapi")]
 pub use openapi::SearchApiDoc;
+
+#[cfg(feature = "metrics")]
+pub use metrics::SEARCH_METRICS;
 
 #[cfg(test)]
 mod tests {

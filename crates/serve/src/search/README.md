@@ -139,8 +139,8 @@ let app = Router::new().nest("/api", search_routes());
 
 ```rust
 use xze_serve::search::{
-    AdvancedSearchRequest, 
-    SearchFilters, 
+    AdvancedSearchRequest,
+    SearchFilters,
     SearchOptions
 };
 

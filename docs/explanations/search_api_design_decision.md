@@ -160,7 +160,7 @@ When implementing advanced search features:
    ```rust
    // GET - simple search (existing)
    .route("/search", get(handle_search))
-   
+
    // POST - advanced search (new)
    .route("/search", post(handle_search_advanced))
    ```
@@ -174,7 +174,7 @@ When implementing advanced search features:
        pub options: Option<SearchOptions>,
        pub aggregations: Option<AggregationRequest>,
    }
-   
+
    #[derive(Deserialize)]
    pub struct SearchFilters {
        pub categories: Option<Vec<String>>,
@@ -339,7 +339,7 @@ When POST is added:
 
 **Approved**: Implement hybrid GET/POST approach starting in Phase 10.
 
-**Rationale**: 
+**Rationale**:
 - GET serves 90% of use cases optimally (simple searches)
 - POST enables 10% advanced features without compromise
 - No breaking changes to existing API

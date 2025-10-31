@@ -95,7 +95,7 @@ class XzeSearchClient:
     def __init__(self, base_url: str = "http://localhost:3000"):
         self.base_url = base_url
         self.search_url = f"{base_url}/search"
-    
+
     def search(
         self,
         query: str,
@@ -105,13 +105,13 @@ class XzeSearchClient:
     ) -> Dict[str, Any]:
         """
         Perform a semantic search.
-        
+
         Args:
             query: Search query string
             max_results: Maximum number of results (default: 10)
             min_similarity: Minimum similarity threshold 0.0-1.0 (default: 0.0)
             category: Filter by category: tutorial, how_to, reference, explanation
-            
+
         Returns:
             Search response with results
         """
@@ -122,16 +122,16 @@ class XzeSearchClient:
         }
         if category:
             params['category'] = category
-        
+
         response = requests.get(self.search_url, params=params)
         response.raise_for_status()
         return response.json()
-    
+
     def search_best_match(self, query: str) -> Optional[Dict[str, Any]]:
         """Get the single best matching result."""
         results = self.search(query, max_results=1, min_similarity=0.5)
         return results['results'][0] if results['results'] else None
-    
+
     def search_by_category(
         self,
         query: str,
@@ -180,7 +180,7 @@ class XzeSearchClient {
         this.baseUrl = baseUrl;
         this.searchUrl = `${baseUrl}/search`;
     }
-    
+
     async search(query, options = {}) {
         const params = {
             q: query,
@@ -188,11 +188,11 @@ class XzeSearchClient {
             min_similarity: options.minSimilarity || 0.0,
             ...(options.category && { category: options.category })
         };
-        
+
         const response = await axios.get(this.searchUrl, { params });
         return response.data;
     }
-    
+
     async searchBestMatch(query) {
         const results = await this.search(query, {
             maxResults: 1,
@@ -200,7 +200,7 @@ class XzeSearchClient {
         });
         return results.results[0] || null;
     }
-    
+
     async searchByCategory(query, category, minSimilarity = 0.5) {
         const results = await this.search(query, {
             category,
@@ -281,33 +281,33 @@ func (c *SearchClient) Search(query string, maxResults int, minSimilarity float6
     if category != "" {
         params.Add("category", category)
     }
-    
+
     searchURL := fmt.Sprintf("%s/search?%s", c.BaseURL, params.Encode())
-    
+
     resp, err := http.Get(searchURL)
     if err != nil {
         return nil, err
     }
     defer resp.Body.Close()
-    
+
     var searchResp SearchResponse
     if err := json.NewDecoder(resp.Body).Decode(&searchResp); err != nil {
         return nil, err
     }
-    
+
     return &searchResp, nil
 }
 
 func main() {
     client := NewSearchClient("http://localhost:3000")
-    
+
     // Perform search
     results, err := client.Search("database configuration", 10, 0.5, "")
     if err != nil {
         fmt.Printf("Error: %v\n", err)
         return
     }
-    
+
     fmt.Printf("Found %d results\n\n", results.TotalResults)
     for _, result := range results.Results {
         fmt.Printf("[%.1f%%] %s\n", result.Similarity*100, result.SourceFile)
@@ -330,11 +330,11 @@ def comprehensive_search(client, query):
     """Search all categories and aggregate results."""
     categories = ['tutorial', 'how_to', 'reference', 'explanation']
     all_results = []
-    
+
     for category in categories:
         results = client.search(query, category=category, max_results=5)
         all_results.extend(results['results'])
-    
+
     # Sort by similarity
     all_results.sort(key=lambda x: x['similarity'], reverse=True)
     return all_results[:10]  # Top 10 overall
@@ -349,15 +349,15 @@ def smart_search(client, query):
     """Try high-precision first, fall back if no results."""
     # Try high precision
     results = client.search(query, min_similarity=0.8, max_results=5)
-    
+
     if results['total_results'] == 0:
         # Fall back to medium precision
         results = client.search(query, min_similarity=0.5, max_results=10)
-    
+
     if results['total_results'] == 0:
         # Fall back to broad search
         results = client.search(query, min_similarity=0.0, max_results=20)
-    
+
     return results
 ```
 
@@ -369,14 +369,14 @@ Extract surrounding context from the document:
 def search_with_context(client, query):
     """Get search results with adjacent chunks for context."""
     results = client.search(query, max_results=5)
-    
+
     for result in results['results']:
         chunk_idx = result['chunk_index']
         total = result['total_chunks']
-        
+
         print(f"Match in: {result['source_file']}")
         print(f"Position: Chunk {chunk_idx + 1} of {total}")
-        
+
         # Show if there's context before/after
         if chunk_idx > 0:
             print("  (Previous chunk available)")

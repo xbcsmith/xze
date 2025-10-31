@@ -103,7 +103,7 @@ use validator::Validate;
 pub struct AdvancedSearchRequest {
     #[validate(length(min = 1, max = 1000))]
     pub query: String,
-    
+
     pub filters: Option<SearchFilters>,
     pub options: Option<SearchOptions>,
     pub aggregations: Option<AggregationRequest>,
@@ -122,10 +122,10 @@ pub struct SearchFilters {
 pub struct SearchOptions {
     #[validate(range(min = 1, max = 100))]
     pub max_results: Option<u32>,
-    
+
     #[validate(range(min = 0))]
     pub offset: Option<u32>,
-    
+
     pub include_snippets: Option<bool>,
     pub highlight_terms: Option<bool>,
     pub group_by: Option<String>,
@@ -142,7 +142,7 @@ pub struct AggregationRequest {
 pub struct SimilarityRange {
     #[validate(range(min = 0.0, max = 1.0))]
     pub min: Option<f32>,
-    
+
     #[validate(range(min = 0.0, max = 1.0))]
     pub max: Option<f32>,
 }
@@ -285,16 +285,16 @@ pub async fn handle_search_advanced(
     Json(request): Json<AdvancedSearchRequest>,
 ) -> Result<Json<SearchResponse>, ApiError> {
     request.validate()?;
-    
+
     let search_params = SearchParams {
         query: request.query.clone(),
         filters: request.filters,
         options: request.options.unwrap_or_default(),
         aggregations: request.aggregations,
     };
-    
+
     let response = execute_search(&state, search_params).await?;
-    
+
     Ok(Json(response))
 }
 
@@ -307,7 +307,7 @@ async fn execute_search(
     let embedding = state.ai_service
         .generate_embedding(&params.query)
         .await?;
-    
+
     // Build SQL query with filters
     let mut query_builder = QueryBuilder::new();
     query_builder
@@ -315,19 +315,19 @@ async fn execute_search(
         .with_filters(&params.filters)
         .with_limit(params.options.max_results.unwrap_or(10))
         .with_offset(params.options.offset.unwrap_or(0));
-    
+
     // Execute search
     let results = state.db_pool
         .search_documents(query_builder.build())
         .await?;
-    
+
     // Apply aggregations if requested
     let aggregations = if params.aggregations.is_some() {
         Some(compute_aggregations(&results, &params.aggregations.unwrap()))
     } else {
         None
     };
-    
+
     // Build response
     Ok(SearchResponse {
         query: params.query,
@@ -411,9 +411,9 @@ async fn test_post_search_basic_query() {
         options: None,
         aggregations: None,
     };
-    
+
     let response = post_search(request).await.unwrap();
-    
+
     assert_eq!(response.query, "getting started");
     assert!(!response.results.is_empty());
 }
@@ -435,9 +435,9 @@ async fn test_post_search_with_filters() {
         options: None,
         aggregations: None,
     };
-    
+
     let response = post_search(request).await.unwrap();
-    
+
     for result in &response.results {
         assert_eq!(result.category, "tutorial");
         assert!(result.similarity >= 0.8);
@@ -447,9 +447,9 @@ async fn test_post_search_with_filters() {
 #[tokio::test]
 async fn test_get_post_equivalence() {
     let query = "rust tutorial";
-    
+
     let get_response = get_search(query, 10, 0.7).await.unwrap();
-    
+
     let post_request = AdvancedSearchRequest {
         query: query.to_string(),
         filters: Some(SearchFilters {
@@ -466,7 +466,7 @@ async fn test_get_post_equivalence() {
         aggregations: None,
     };
     let post_response = post_search(post_request).await.unwrap();
-    
+
     assert_eq!(get_response.results.len(), post_response.results.len());
 }
 
@@ -478,7 +478,7 @@ async fn test_post_search_validation_errors() {
         options: None,
         aggregations: None,
     };
-    
+
     let result = post_search(request).await;
     assert!(result.is_err());
 }
@@ -495,9 +495,9 @@ async fn test_post_search_with_aggregations() {
             by_date: None,
         }),
     };
-    
+
     let response = post_search(request).await.unwrap();
-    
+
     assert!(response.aggregations.is_some());
     let aggs = response.aggregations.unwrap();
     assert!(aggs.by_category.is_some());
@@ -794,13 +794,13 @@ pub struct AdvancedSearchRequest {
     #[schema(description = "Search query text", example = "getting started", min_length = 1, max_length = 1000)]
     #[validate(length(min = 1, max = 1000))]
     pub query: String,
-    
+
     #[schema(description = "Optional filters to narrow search results")]
     pub filters: Option<SearchFilters>,
-    
+
     #[schema(description = "Search behavior options")]
     pub options: Option<SearchOptions>,
-    
+
     #[schema(description = "Request aggregations on search results")]
     pub aggregations: Option<AggregationRequest>,
 }
@@ -809,16 +809,16 @@ pub struct AdvancedSearchRequest {
 pub struct SearchFilters {
     #[schema(description = "Filter by document categories", example = json!(["tutorial", "how-to"]))]
     pub categories: Option<Vec<String>>,
-    
+
     #[schema(description = "Filter by similarity score range")]
     pub similarity: Option<SimilarityRange>,
-    
+
     #[schema(description = "Filter by date range")]
     pub date_range: Option<DateRange>,
-    
+
     #[schema(description = "Filter by tags", example = json!(["rust", "beginner"]))]
     pub tags: Option<Vec<String>>,
-    
+
     #[schema(description = "Filter by repository IDs")]
     pub repositories: Option<Vec<String>>,
 }
@@ -865,7 +865,7 @@ pub struct SearchFilters {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_advanced_search_request_validation_success() {
         let request = AdvancedSearchRequest {
@@ -876,7 +876,7 @@ mod tests {
         };
         assert!(request.validate().is_ok());
     }
-    
+
     #[test]
     fn test_advanced_search_request_validation_empty_query() {
         let request = AdvancedSearchRequest {
@@ -887,7 +887,7 @@ mod tests {
         };
         assert!(request.validate().is_err());
     }
-    
+
     #[test]
     fn test_similarity_range_validation() {
         let valid = SimilarityRange {
@@ -895,14 +895,14 @@ mod tests {
             max: Some(0.9),
         };
         assert!(valid.validate().is_ok());
-        
+
         let invalid = SimilarityRange {
             min: Some(1.5),
             max: Some(2.0),
         };
         assert!(invalid.validate().is_err());
     }
-    
+
     #[test]
     fn test_search_options_max_results_range() {
         let valid = SearchOptions {
@@ -910,7 +910,7 @@ mod tests {
             ..Default::default()
         };
         assert!(valid.validate().is_ok());
-        
+
         let invalid = SearchOptions {
             max_results: Some(500),
             ..Default::default()
@@ -948,11 +948,11 @@ mod tests {
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
     use tower::ServiceExt;
-    
+
     #[tokio::test]
     async fn test_handle_search_advanced_success() {
         let app = create_test_app();
-        
+
         let request = Request::builder()
             .method("POST")
             .uri("/api/v1/search")
@@ -962,22 +962,22 @@ mod tests {
                 "options": {"max_results": 5}
             }"#))
             .unwrap();
-        
+
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
     }
-    
+
     #[tokio::test]
     async fn test_handle_search_advanced_validation_error() {
         let app = create_test_app();
-        
+
         let request = Request::builder()
             .method("POST")
             .uri("/api/v1/search")
             .header("content-type", "application/json")
             .body(Body::from(r#"{"query": ""}"#))
             .unwrap();
-        
+
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
     }
@@ -1018,7 +1018,7 @@ async fn setup_test_db() -> PgPool {
 async fn test_get_search_integration() {
     let pool = setup_test_db().await;
     let app = create_app_with_db(pool);
-    
+
     let response = app
         .oneshot(
             Request::builder()
@@ -1028,12 +1028,12 @@ async fn test_get_search_integration() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
-    
+
     let body = hyper::body::to_bytes(response.into_body()).await.unwrap();
     let search_response: SearchResponse = serde_json::from_slice(&body).unwrap();
-    
+
     assert!(!search_response.results.is_empty());
 }
 
@@ -1042,7 +1042,7 @@ async fn test_get_search_integration() {
 async fn test_post_search_with_filters_integration() {
     let pool = setup_test_db().await;
     let app = create_app_with_db(pool);
-    
+
     let request_body = json!({
         "query": "tutorial",
         "filters": {
@@ -1051,7 +1051,7 @@ async fn test_post_search_with_filters_integration() {
         },
         "options": {"max_results": 20}
     });
-    
+
     let response = app
         .oneshot(
             Request::builder()
@@ -1063,7 +1063,7 @@ async fn test_post_search_with_filters_integration() {
         )
         .await
         .unwrap();
-    
+
     assert_eq!(response.status(), StatusCode::OK);
 }
 
@@ -1072,7 +1072,7 @@ async fn test_post_search_with_filters_integration() {
 async fn test_get_post_return_same_results() {
     let pool = setup_test_db().await;
     let app = create_app_with_db(pool.clone());
-    
+
     // GET request
     let get_response = app.clone()
         .oneshot(
@@ -1083,10 +1083,10 @@ async fn test_get_post_return_same_results() {
         )
         .await
         .unwrap();
-    
+
     let get_body = hyper::body::to_bytes(get_response.into_body()).await.unwrap();
     let get_results: SearchResponse = serde_json::from_slice(&get_body).unwrap();
-    
+
     // POST request with equivalent parameters
     let post_body = json!({
         "query": "rust",
@@ -1095,7 +1095,7 @@ async fn test_get_post_return_same_results() {
         },
         "options": {"max_results": 10}
     });
-    
+
     let post_response = app
         .oneshot(
             Request::builder()
@@ -1107,10 +1107,10 @@ async fn test_get_post_return_same_results() {
         )
         .await
         .unwrap();
-    
+
     let post_body = hyper::body::to_bytes(post_response.into_body()).await.unwrap();
     let post_results: SearchResponse = serde_json::from_slice(&post_body).unwrap();
-    
+
     assert_eq!(get_results.results.len(), post_results.results.len());
     assert_eq!(get_results.total_results, post_results.total_results);
 }
@@ -1145,7 +1145,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 fn benchmark_get_search(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let app = create_test_app();
-    
+
     c.bench_function("GET simple search", |b| {
         b.to_async(&rt).iter(|| async {
             let response = app.clone()
@@ -1165,7 +1165,7 @@ fn benchmark_get_search(c: &mut Criterion) {
 fn benchmark_post_search(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let app = create_test_app();
-    
+
     c.bench_function("POST simple search", |b| {
         b.to_async(&rt).iter(|| async {
             let body = json!({"query": "test"});
@@ -1188,7 +1188,7 @@ fn benchmark_post_search(c: &mut Criterion) {
 fn benchmark_post_with_filters(c: &mut Criterion) {
     let rt = tokio::runtime::Runtime::new().unwrap();
     let app = create_test_app();
-    
+
     c.bench_function("POST complex search", |b| {
         b.to_async(&rt).iter(|| async {
             let body = json!({
@@ -1298,7 +1298,7 @@ pub async fn handle_search_with_cache(
     State(state): State<AppState>,
 ) -> Result<Response, ApiError> {
     let cache_key = generate_cache_key(&params);
-    
+
     if let Some(cached) = state.cache.get(&cache_key).await? {
         return Ok(Response::builder()
             .status(StatusCode::OK)
@@ -1307,10 +1307,10 @@ pub async fn handle_search_with_cache(
             .body(cached)
             .unwrap());
     }
-    
+
     let results = execute_search(&state, params).await?;
     state.cache.set(&cache_key, &results, 300).await?;
-    
+
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header("X-Cache", "MISS")
@@ -1348,12 +1348,12 @@ lazy_static! {
         "xze_search_requests_total",
         "Total number of search requests"
     ).unwrap();
-    
+
     static ref SEARCH_DURATION: Histogram = register_histogram!(
         "xze_search_duration_seconds",
         "Search request duration"
     ).unwrap();
-    
+
     static ref SEARCH_RESULTS: Histogram = register_histogram!(
         "xze_search_results_count",
         "Number of search results returned"
@@ -1366,12 +1366,12 @@ pub async fn handle_search_with_metrics(
 ) -> Result<SearchResponse, ApiError> {
     SEARCH_REQUESTS.inc();
     let timer = SEARCH_DURATION.start_timer();
-    
+
     let results = execute_search(&state, params).await?;
-    
+
     SEARCH_RESULTS.observe(results.total_results as f64);
     timer.observe_duration();
-    
+
     Ok(results)
 }
 ```

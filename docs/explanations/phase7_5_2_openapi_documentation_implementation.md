@@ -89,10 +89,10 @@ All request and response types use `ToSchema` derive to generate OpenAPI schemas
 pub struct HealthResponse {
     #[cfg_attr(feature = "openapi", schema(example = "healthy"))]
     pub status: String,
-    
+
     #[cfg_attr(feature = "openapi", schema(example = "1.0.0"))]
     pub version: String,
-    
+
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 ```

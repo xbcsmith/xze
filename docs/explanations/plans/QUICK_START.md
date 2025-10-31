@@ -58,8 +58,8 @@ curl "http://localhost:3000/search?q=tutorial&category=tutorial"
 
 ## 🚀 Next: Phase 8.1 Integration Testing
 
-**Priority**: 🔴 HIGH  
-**Duration**: 3-4 days  
+**Priority**: 🔴 HIGH
+**Duration**: 3-4 days
 **Goal**: Production-ready testing
 
 ### Day 1: Setup Test Infrastructure

@@ -27,7 +27,7 @@ pub struct AppState {
 impl AppState {
     pub async fn new(config: crate::ServerConfig) -> Result<Self, sqlx::Error> {
         let database_pool = PgPool::connect(&config.database_url).await?;
-        
+
         Ok(Self {
             ollama_url: config.ollama_url.clone(),
             database_pool,
@@ -154,7 +154,7 @@ async fn create_app(config: &ServerConfig) -> Result<Router> {
         .map_err(|e| XzeError::Generic(anyhow::anyhow!(
             "Failed to connect to database: {}", e
         )))?;
-    
+
     let app = create_routes().with_state(state);
     // ... middleware configuration
     Ok(app)
