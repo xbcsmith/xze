@@ -52,6 +52,7 @@
 //! }
 //! ```
 
+pub mod analytics;
 pub mod handlers;
 pub mod metrics;
 pub mod types;
@@ -79,6 +80,13 @@ pub use metrics::SEARCH_METRICS;
 pub use websocket::{
     connection::ConnectionRegistry, streaming::StreamingConfig, types::ClientMessage,
     types::ServerMessage, websocket_routes,
+};
+
+// Re-export Analytics types
+pub use analytics::{
+    analytics_routes, AnalyticsAggregator, AnalyticsCollector, AnalyticsError, AnalyticsEvent,
+    AnalyticsReportRequest, AnalyticsReportResponse, AnalyticsState, PopularQuery, QualityMetrics,
+    UsageAnalytics,
 };
 
 #[cfg(test)]
