@@ -190,7 +190,7 @@ def search_docs(query, max_results=10, min_similarity=0.0, category=None):
     }
     if category:
         params['category'] = category
-    
+
     response = requests.get('http://localhost:3000/search', params=params)
     response.raise_for_status()
     return response.json()
@@ -222,7 +222,7 @@ async function searchDocs(query, options = {}) {
         min_similarity: options.minSimilarity || 0.0,
         ...(options.category && { category: options.category })
     };
-    
+
     const response = await axios.get('http://localhost:3000/search', { params });
     return response.data;
 }
@@ -303,17 +303,17 @@ Both use the same underlying search implementation from `xze-core`.
 import requests
 
 try:
-    response = requests.get('http://localhost:3000/search', 
+    response = requests.get('http://localhost:3000/search',
                           params={'q': 'test query'})
     response.raise_for_status()
     data = response.json()
-    
+
     if data['total_results'] == 0:
         print("No results found. Try:")
         print("- Using different keywords")
         print("- Lowering min_similarity threshold")
         print("- Removing category filters")
-    
+
 except requests.exceptions.HTTPError as e:
     if e.response.status_code == 400:
         error = e.response.json()
@@ -322,7 +322,7 @@ except requests.exceptions.HTTPError as e:
         print("Ollama service unavailable")
     else:
         print(f"Server error: {e}")
-        
+
 except requests.exceptions.ConnectionError:
     print("Cannot connect to XZe server")
 ```

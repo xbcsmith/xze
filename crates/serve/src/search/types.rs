@@ -637,4 +637,436 @@ mod tests {
         let last_page = PaginationInfo::new(90, 20, 100);
         assert!(!last_page.has_more);
     }
+
+    #[test]
+    fn test_advanced_search_request_serialization() {
+        let request = AdvancedSearchRequest {
+            query: "test query".to_string(),
+            filters: Some(SearchFilters {
+                categories: Some(vec!["tutorial".to_string()]),
+                similarity: Some(SimilarityRange {
+                    min: Some(0.7),
+                    max: Some(0.9),
+                }),
+                date_range: None,
+                tags: Some(vec!["rust".to_string(), "async".to_string()]),
+                repositories: Some(vec!["xze".to_string()]),
+            }),
+            options: Some(SearchOptions {
+                max_results: Some(50),
+                offset: Some(10),
+                include_snippets: Some(true),
+                highlight_terms: Some(false),
+                group_by: Some("category".to_string()),
+            }),
+            aggregations: Some(AggregationRequest {
+                by_category: Some(true),
+                by_similarity_range: Some(false),
+                by_date: Some(true),
+            }),
+        };
+
+        // Test serialization
+        let json = serde_json::to_string(&request).unwrap();
+        assert!(json.contains("test query"));
+        assert!(json.contains("tutorial"));
+        assert!(json.contains("rust"));
+        assert!(json.contains("async"));
+
+        // Test deserialization
+        let deserialized: AdvancedSearchRequest = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.query, "test query");
+        assert!(deserialized.filters.is_some());
+        assert!(deserialized.options.is_some());
+        assert!(deserialized.aggregations.is_some());
+
+        // Verify filter details
+        let filters = deserialized.filters.unwrap();
+        assert_eq!(filters.categories.as_ref().unwrap().len(), 1);
+        assert_eq!(filters.tags.as_ref().unwrap().len(), 2);
+        assert!(filters.similarity.is_some());
+    }
+
+    #[test]
+    fn test_search_filters_serialization_roundtrip() {
+        let filters = SearchFilters {
+            categories: Some(vec![
+                "tutorial".to_string(),
+                "how-to".to_string(),
+                "reference".to_string(),
+            ]),
+            similarity: Some(SimilarityRange {
+                min: Some(0.5),
+                max: Some(0.95),
+            }),
+            date_range: None,
+            tags: Some(vec!["documentation".to_string()]),
+            repositories: Some(vec!["xze-core".to_string(), "xze-serve".to_string()]),
+        };
+
+        let json = serde_json::to_string(&filters).unwrap();
+        let deserialized: SearchFilters = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(
+            deserialized.categories.as_ref().unwrap().len(),
+            filters.categories.as_ref().unwrap().len()
+        );
+        assert_eq!(
+            deserialized.tags.as_ref().unwrap(),
+            filters.tags.as_ref().unwrap()
+        );
+        assert_eq!(
+            deserialized.repositories.as_ref().unwrap().len(),
+            filters.repositories.as_ref().unwrap().len()
+        );
+    }
+
+    #[test]
+    fn test_search_options_validation_offset() {
+        // Test valid offset
+        let valid_offset = SearchOptions {
+            offset: Some(100),
+            ..Default::default()
+        };
+        assert!(valid_offset.validate().is_ok());
+
+        // Test large offset
+        let large_offset = SearchOptions {
+            offset: Some(1000),
+            ..Default::default()
+        };
+        assert!(large_offset.validate().is_ok());
+    }
+
+    #[test]
+    fn test_similarity_range_edge_cases() {
+        // Both min and max at boundaries
+        let boundary_range = SimilarityRange {
+            min: Some(0.0),
+            max: Some(1.0),
+        };
+        assert!(boundary_range.validate().is_ok());
+
+        // Only min specified
+        let min_only = SimilarityRange {
+            min: Some(0.5),
+            max: None,
+        };
+        assert!(min_only.validate().is_ok());
+
+        // Only max specified
+        let max_only = SimilarityRange {
+            min: None,
+            max: Some(0.8),
+        };
+        assert!(max_only.validate().is_ok());
+
+        // Neither specified
+        let neither = SimilarityRange {
+            min: None,
+            max: None,
+        };
+        assert!(neither.validate().is_ok());
+
+        // Equal min and max
+        let equal = SimilarityRange {
+            min: Some(0.7),
+            max: Some(0.7),
+        };
+        assert!(equal.validate().is_ok());
+
+        // Min slightly greater than max
+        let invalid = SimilarityRange {
+            min: Some(0.7001),
+            max: Some(0.7),
+        };
+        assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn test_search_filters_multiple_invalid_categories() {
+        let filters = SearchFilters {
+            categories: Some(vec![
+                "tutorial".to_string(),
+                "invalid1".to_string(),
+                "reference".to_string(),
+                "invalid2".to_string(),
+            ]),
+            ..Default::default()
+        };
+
+        assert!(filters.validate().is_err());
+    }
+
+    #[test]
+    fn test_search_filters_case_insensitive_categories() {
+        let filters = SearchFilters {
+            categories: Some(vec![
+                "Tutorial".to_string(),
+                "HOW-TO".to_string(),
+                "Reference".to_string(),
+                "EXPLANATION".to_string(),
+            ]),
+            ..Default::default()
+        };
+
+        assert!(filters.validate().is_ok());
+    }
+
+    #[test]
+    fn test_search_options_group_by_values() {
+        let by_category = SearchOptions {
+            group_by: Some("category".to_string()),
+            ..Default::default()
+        };
+        assert!(by_category.validate().is_ok());
+
+        let by_repository = SearchOptions {
+            group_by: Some("repository".to_string()),
+            ..Default::default()
+        };
+        assert!(by_repository.validate().is_ok());
+
+        let by_similarity = SearchOptions {
+            group_by: Some("similarity".to_string()),
+            ..Default::default()
+        };
+        assert!(by_similarity.validate().is_ok());
+    }
+
+    #[test]
+    fn test_pagination_info_boundary_conditions() {
+        // First page
+        let first_page = PaginationInfo::new(0, 10, 100);
+        assert_eq!(first_page.offset, 0);
+        assert!(first_page.has_more);
+
+        // Exact last page
+        let exact_last = PaginationInfo::new(90, 10, 100);
+        assert!(!exact_last.has_more);
+
+        // Beyond last page
+        let beyond = PaginationInfo::new(100, 10, 100);
+        assert!(!beyond.has_more);
+
+        // Single result
+        let single = PaginationInfo::new(0, 10, 1);
+        assert!(!single.has_more);
+
+        // No results
+        let empty = PaginationInfo::new(0, 10, 0);
+        assert!(!empty.has_more);
+    }
+
+    #[test]
+    fn test_advanced_search_request_with_all_filters() {
+        let now = Utc::now();
+        let past = now - chrono::Duration::days(30);
+
+        let request = AdvancedSearchRequest {
+            query: "comprehensive test".to_string(),
+            filters: Some(SearchFilters {
+                categories: Some(vec![
+                    "tutorial".to_string(),
+                    "how-to".to_string(),
+                    "reference".to_string(),
+                ]),
+                similarity: Some(SimilarityRange {
+                    min: Some(0.6),
+                    max: Some(0.95),
+                }),
+                date_range: Some(DateRange {
+                    start: Some(past),
+                    end: Some(now),
+                }),
+                tags: Some(vec![
+                    "rust".to_string(),
+                    "documentation".to_string(),
+                    "testing".to_string(),
+                ]),
+                repositories: Some(vec!["xze".to_string(), "xze-core".to_string()]),
+            }),
+            options: Some(SearchOptions {
+                max_results: Some(100),
+                offset: Some(0),
+                include_snippets: Some(true),
+                highlight_terms: Some(true),
+                group_by: Some("category".to_string()),
+            }),
+            aggregations: Some(AggregationRequest {
+                by_category: Some(true),
+                by_similarity_range: Some(true),
+                by_date: Some(true),
+            }),
+        };
+
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_search_response_structure() {
+        let response = SearchResponse {
+            query: "test".to_string(),
+            results: vec![],
+            total_results: 0,
+            aggregations: None,
+            pagination: PaginationInfo::new(0, 20, 0),
+        };
+
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(json.contains("\"query\":\"test\""));
+        assert!(json.contains("\"results\":[]"));
+        assert!(json.contains("\"total_results\":0"));
+    }
+
+    #[test]
+    fn test_search_result_complete_structure() {
+        let result = SearchResult {
+            id: "test-id-123".to_string(),
+            title: "Test Document".to_string(),
+            content: "Test content here".to_string(),
+            snippet: Some("Test...".to_string()),
+            category: "tutorial".to_string(),
+            similarity: Some(0.85),
+            repository: "xze".to_string(),
+            path: "docs/test.md".to_string(),
+            tags: vec!["rust".to_string()],
+            updated_at: Utc::now(),
+        };
+
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("test-id-123"));
+        assert!(json.contains("Test Document"));
+        assert!(json.contains("0.85"));
+
+        let deserialized: SearchResult = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "test-id-123");
+        assert_eq!(deserialized.similarity, Some(0.85));
+    }
+
+    #[test]
+    fn test_aggregation_response_serialization() {
+        let aggregations = AggregationResponse {
+            by_category: Some(vec![
+                CategoryCount {
+                    category: "tutorial".to_string(),
+                    count: 15,
+                },
+                CategoryCount {
+                    category: "reference".to_string(),
+                    count: 23,
+                },
+            ]),
+            by_similarity_range: Some(vec![
+                SimilarityRangeCount {
+                    range: "0.7-0.8".to_string(),
+                    count: 12,
+                },
+                SimilarityRangeCount {
+                    range: "0.8-0.9".to_string(),
+                    count: 8,
+                },
+            ]),
+            by_date: None,
+        };
+
+        let json = serde_json::to_string(&aggregations).unwrap();
+        assert!(json.contains("tutorial"));
+        assert!(json.contains("15"));
+        assert!(json.contains("23"));
+        assert!(json.contains("0.7-0.8"));
+
+        let deserialized: AggregationResponse = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.by_category.as_ref().unwrap().len(), 2);
+        assert_eq!(deserialized.by_similarity_range.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_date_range_edge_cases() {
+        let now = Utc::now();
+
+        // Same start and end
+        let same = DateRange {
+            start: Some(now),
+            end: Some(now),
+        };
+        assert!(same.validate().is_ok());
+
+        // Only start
+        let start_only = DateRange {
+            start: Some(now),
+            end: None,
+        };
+        assert!(start_only.validate().is_ok());
+
+        // Only end
+        let end_only = DateRange {
+            start: None,
+            end: Some(now),
+        };
+        assert!(end_only.validate().is_ok());
+
+        // Neither
+        let neither = DateRange {
+            start: None,
+            end: None,
+        };
+        assert!(neither.validate().is_ok());
+    }
+
+    #[test]
+    fn test_search_options_max_results_boundary() {
+        let max_allowed = SearchOptions {
+            max_results: Some(100),
+            ..Default::default()
+        };
+        assert!(max_allowed.validate().is_ok());
+
+        let over_max = SearchOptions {
+            max_results: Some(101),
+            ..Default::default()
+        };
+        assert!(over_max.validate().is_err());
+
+        let min_allowed = SearchOptions {
+            max_results: Some(1),
+            ..Default::default()
+        };
+        assert!(min_allowed.validate().is_ok());
+    }
+
+    #[test]
+    fn test_empty_query_variations() {
+        let empty_string = AdvancedSearchRequest {
+            query: "".to_string(),
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(empty_string.validate().is_err());
+
+        let whitespace_only = AdvancedSearchRequest {
+            query: "     ".to_string(),
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(whitespace_only.validate().is_err());
+
+        let tabs_and_newlines = AdvancedSearchRequest {
+            query: "\t\n\r".to_string(),
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(tabs_and_newlines.validate().is_err());
+
+        let valid_with_whitespace = AdvancedSearchRequest {
+            query: "  valid query  ".to_string(),
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(valid_with_whitespace.validate().is_ok());
+    }
 }

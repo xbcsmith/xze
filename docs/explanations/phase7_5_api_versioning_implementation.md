@@ -152,13 +152,13 @@ Updated `crates/serve/src/api.rs` to nest v1 routes under `/api/v1` prefix:
 pub fn create_routes() -> Router<AppState> {
     // Create v1 routes
     let v1_routes = v1::create_v1_routes();
-    
+
     // Create legacy routes
     let legacy_routes = Router::new()
         .route("/health", get(health_check))
         .route("/version", get(get_version))
         // ... other legacy routes
-        
+
     // Combine: v1 under /api/v1, legacy at root
     Router::new()
         .nest("/api/v1", v1_routes)

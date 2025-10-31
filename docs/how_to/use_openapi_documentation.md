@@ -199,12 +199,12 @@ class XzeClient:
     def __init__(self, base_url="http://localhost:3000"):
         self.base_url = base_url
         self.api_version = "v1"
-    
+
     def health_check(self):
         """Check service health - GET /api/v1/health"""
         response = requests.get(f"{self.base_url}/api/{self.api_version}/health")
         return response.json()
-    
+
     def analyze_repository(self, repo_url, branch=None, language=None):
         """Analyze repository - POST /api/v1/analyze"""
         payload = {
@@ -217,7 +217,7 @@ class XzeClient:
             json=payload
         )
         return response.json()
-    
+
     def search(self, query, max_results=10, min_similarity=0.0, category=None):
         """Semantic search - GET /api/v1/search"""
         params = {
@@ -227,7 +227,7 @@ class XzeClient:
         }
         if category:
             params["category"] = category
-        
+
         response = requests.get(
             f"{self.base_url}/api/{self.api_version}/search",
             params=params
@@ -268,7 +268,7 @@ Ensure your client works with the API spec:
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_health_response_matches_schema() {
         let response = HealthResponse {
@@ -276,13 +276,13 @@ mod tests {
             version: "1.0.0".to_string(),
             timestamp: chrono::Utc::now(),
         };
-        
+
         // Serialize to JSON
         let json = serde_json::to_string(&response).unwrap();
-        
+
         // Deserialize back
         let parsed: HealthResponse = serde_json::from_str(&json).unwrap();
-        
+
         // Verify fields match schema requirements
         assert_eq!(response.status, parsed.status);
         assert_eq!(response.version, parsed.version);

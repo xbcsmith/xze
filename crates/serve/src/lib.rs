@@ -5,6 +5,7 @@
 use xze_core::Result;
 
 pub mod api;
+pub mod cache;
 pub mod handlers;
 pub mod middleware;
 pub mod search;

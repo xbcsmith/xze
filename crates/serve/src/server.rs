@@ -2,7 +2,7 @@
 
 use crate::api::create_routes;
 use crate::handlers::AppState;
-use crate::middleware::{api_version_middleware, legacy_deprecation_middleware};
+
 use crate::ServerConfig;
 use anyhow;
 use axum::{
@@ -10,7 +10,7 @@ use axum::{
         header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
         HeaderValue, Method,
     },
-    middleware, Router,
+    Router,
 };
 use std::net::SocketAddr;
 use tower::ServiceBuilder;
@@ -65,11 +65,6 @@ async fn create_app(config: &ServerConfig) -> Result<Router> {
         .map_err(|e| XzeError::Generic(anyhow::anyhow!("Failed to connect to database: {}", e)))?;
 
     let mut app = create_routes().with_state(state);
-
-    // Add API versioning and deprecation middleware
-    app = app
-        .layer(middleware::from_fn(api_version_middleware))
-        .layer(middleware::from_fn(legacy_deprecation_middleware));
 
     // Add middleware layers
     app = app.layer(

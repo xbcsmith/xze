@@ -14,6 +14,7 @@ categories.workspace = true
 [features]
 default = []
 openapi = ["dep:utoipa", "dep:utoipa-swagger-ui"]
+metrics = ["dep:prometheus", "dep:once_cell"]
 
 [dependencies]
 xze-core = { path = "../core" }
@@ -56,7 +57,23 @@ config = { workspace = true }
 utoipa = { version = "4.2", features = ["axum_extras", "chrono", "uuid"], optional = true }
 utoipa-swagger-ui = { version = "6.0", features = ["axum"], optional = true }
 
+# Rate limiting
+tower_governor = "0.3"
+governor = "0.6"
+
+# Caching
+moka = { version = "0.12", features = ["future"] }
+
+# Metrics (optional)
+prometheus = { version = "0.13", optional = true }
+once_cell = { version = "1.19", optional = true }
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = { workspace = true }
 axum-test = "14.0"
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[bench]]
+name = "search_benchmarks"
+harness = false

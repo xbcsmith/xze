@@ -268,7 +268,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SearchResponse'
-  
+
   /search/advanced:
     post:
       tags:
@@ -298,7 +298,7 @@ components:
           type: string
         limit:
           type: integer
-    
+
     AdvancedSearchRequest:
       type: object
       required: [query]
