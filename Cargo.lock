@@ -5084,6 +5084,7 @@ dependencies = [
  "anyhow",
  "axum",
  "axum-test",
+ "base64",
  "chrono",
  "config",
  "criterion",

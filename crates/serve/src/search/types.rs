@@ -35,6 +35,8 @@
 //! };
 //! ```
 
+use base64::engine::general_purpose::STANDARD;
+use base64::Engine;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -460,33 +462,195 @@ pub struct DateCount {
     pub count: usize,
 }
 
-/// Pagination information
+/// Pagination information supporting both offset and cursor-based pagination
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PaginationInfo {
-    /// Current offset
-    pub offset: usize,
+    /// Current offset (for offset-based pagination)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub offset: Option<usize>,
 
     /// Number of results per page
     pub limit: usize,
 
-    /// Total number of results
-    pub total: usize,
+    /// Total number of results (if available)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total: Option<usize>,
 
     /// Whether there are more results
     pub has_more: bool,
+
+    /// Cursor for next page (cursor-based pagination)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+
+    /// Cursor for previous page (cursor-based pagination)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prev_cursor: Option<String>,
 }
 
 impl PaginationInfo {
-    /// Creates new pagination info
+    /// Creates new offset-based pagination info
     pub fn new(offset: usize, limit: usize, total: usize) -> Self {
         let has_more = offset + limit < total;
         Self {
-            offset,
+            offset: Some(offset),
             limit,
-            total,
+            total: Some(total),
             has_more,
+            cursor: None,
+            prev_cursor: None,
         }
+    }
+
+    /// Creates new cursor-based pagination info
+    ///
+    /// # Arguments
+    ///
+    /// * `limit` - Number of results per page
+    /// * `has_more` - Whether there are more results
+    /// * `cursor` - Cursor for the next page
+    /// * `prev_cursor` - Cursor for the previous page
+    ///
+    /// # Returns
+    ///
+    /// Returns a new PaginationInfo instance for cursor-based pagination
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_serve::search::types::PaginationInfo;
+    ///
+    /// let pagination = PaginationInfo::cursor_based(
+    ///     20,
+    ///     true,
+    ///     Some("next_cursor_token".to_string()),
+    ///     None,
+    /// );
+    /// ```
+    pub fn cursor_based(
+        limit: usize,
+        has_more: bool,
+        cursor: Option<String>,
+        prev_cursor: Option<String>,
+    ) -> Self {
+        Self {
+            offset: None,
+            limit,
+            total: None,
+            has_more,
+            cursor,
+            prev_cursor,
+        }
+    }
+}
+
+/// Cursor for pagination
+///
+/// Encodes the position in a result set for cursor-based pagination.
+/// This is more efficient than offset-based pagination for large datasets.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct PaginationCursor {
+    /// Last seen ID
+    pub last_id: i64,
+
+    /// Last seen timestamp (for stable sorting)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+
+    /// Direction (forward or backward)
+    #[serde(default)]
+    pub forward: bool,
+}
+
+impl PaginationCursor {
+    /// Creates a new pagination cursor
+    ///
+    /// # Arguments
+    ///
+    /// * `last_id` - The ID of the last item in the current page
+    /// * `last_timestamp` - Optional timestamp for stable sorting
+    /// * `forward` - Whether this cursor is for forward pagination
+    ///
+    /// # Returns
+    ///
+    /// Returns a new PaginationCursor instance
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_serve::search::types::PaginationCursor;
+    /// use chrono::Utc;
+    ///
+    /// let cursor = PaginationCursor::new(12345, Some(Utc::now()), true);
+    /// ```
+    pub fn new(
+        last_id: i64,
+        last_timestamp: Option<chrono::DateTime<chrono::Utc>>,
+        forward: bool,
+    ) -> Self {
+        Self {
+            last_id,
+            last_timestamp,
+            forward,
+        }
+    }
+
+    /// Encodes the cursor as a base64 string
+    ///
+    /// # Returns
+    ///
+    /// Returns a base64-encoded cursor string
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_serve::search::types::PaginationCursor;
+    ///
+    /// let cursor = PaginationCursor::new(12345, None, true);
+    /// let encoded = cursor.encode().unwrap();
+    /// ```
+    pub fn encode(&self) -> Result<String> {
+        let json = serde_json::to_string(self)
+            .map_err(|e| SearchError::InternalError(format!("Failed to encode cursor: {}", e)))?;
+        Ok(STANDARD.encode(json))
+    }
+
+    /// Decodes a cursor from a base64 string
+    ///
+    /// # Arguments
+    ///
+    /// * `encoded` - Base64-encoded cursor string
+    ///
+    /// # Returns
+    ///
+    /// Returns the decoded PaginationCursor
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if decoding or deserialization fails
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_serve::search::types::PaginationCursor;
+    ///
+    /// let cursor = PaginationCursor::new(12345, None, true);
+    /// let encoded = cursor.encode().unwrap();
+    /// let decoded = PaginationCursor::decode(&encoded).unwrap();
+    /// ```
+    pub fn decode(encoded: &str) -> Result<Self> {
+        let json = STANDARD
+            .decode(encoded)
+            .map_err(|e| SearchError::InvalidOptions(format!("Invalid cursor: {}", e)))?;
+        let cursor = serde_json::from_slice(&json)
+            .map_err(|e| SearchError::InvalidOptions(format!("Invalid cursor format: {}", e)))?;
+        Ok(cursor)
     }
 }
 
@@ -629,9 +793,9 @@ mod tests {
     #[test]
     fn test_pagination_info() {
         let pagination = PaginationInfo::new(0, 20, 100);
-        assert_eq!(pagination.offset, 0);
+        assert_eq!(pagination.offset, Some(0));
         assert_eq!(pagination.limit, 20);
-        assert_eq!(pagination.total, 100);
+        assert_eq!(pagination.total, Some(100));
         assert!(pagination.has_more);
 
         let last_page = PaginationInfo::new(90, 20, 100);
@@ -838,7 +1002,7 @@ mod tests {
     fn test_pagination_info_boundary_conditions() {
         // First page
         let first_page = PaginationInfo::new(0, 10, 100);
-        assert_eq!(first_page.offset, 0);
+        assert_eq!(first_page.offset, Some(0));
         assert!(first_page.has_more);
 
         // Exact last page
@@ -1068,5 +1232,112 @@ mod tests {
             aggregations: None,
         };
         assert!(valid_with_whitespace.validate().is_ok());
+    }
+
+    #[test]
+    fn test_pagination_cursor_encode_decode() {
+        let cursor = PaginationCursor::new(12345, None, true);
+        let encoded = cursor.encode().unwrap();
+        let decoded = PaginationCursor::decode(&encoded).unwrap();
+
+        assert_eq!(decoded.last_id, 12345);
+        assert_eq!(decoded.forward, true);
+        assert!(decoded.last_timestamp.is_none());
+    }
+
+    #[test]
+    fn test_pagination_cursor_with_timestamp() {
+        let now = Utc::now();
+        let cursor = PaginationCursor::new(67890, Some(now), false);
+        let encoded = cursor.encode().unwrap();
+        let decoded = PaginationCursor::decode(&encoded).unwrap();
+
+        assert_eq!(decoded.last_id, 67890);
+        assert_eq!(decoded.forward, false);
+        assert!(decoded.last_timestamp.is_some());
+        assert_eq!(decoded.last_timestamp.unwrap().timestamp(), now.timestamp());
+    }
+
+    #[test]
+    fn test_pagination_cursor_invalid_decode() {
+        let result = PaginationCursor::decode("invalid_base64!");
+        assert!(result.is_err());
+
+        let result = PaginationCursor::decode("YWJjZGVm"); // Valid base64 but invalid JSON
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_pagination_info_cursor_based() {
+        let pagination = PaginationInfo::cursor_based(
+            20,
+            true,
+            Some("next_cursor".to_string()),
+            Some("prev_cursor".to_string()),
+        );
+
+        assert!(pagination.offset.is_none());
+        assert_eq!(pagination.limit, 20);
+        assert!(pagination.total.is_none());
+        assert_eq!(pagination.has_more, true);
+        assert_eq!(pagination.cursor.unwrap(), "next_cursor");
+        assert_eq!(pagination.prev_cursor.unwrap(), "prev_cursor");
+    }
+
+    #[test]
+    fn test_pagination_info_offset_based() {
+        let pagination = PaginationInfo::new(10, 20, 100);
+
+        assert_eq!(pagination.offset, Some(10));
+        assert_eq!(pagination.limit, 20);
+        assert_eq!(pagination.total, Some(100));
+        assert_eq!(pagination.has_more, true);
+        assert!(pagination.cursor.is_none());
+        assert!(pagination.prev_cursor.is_none());
+    }
+
+    #[test]
+    fn test_pagination_info_serialization() {
+        let cursor_based =
+            PaginationInfo::cursor_based(25, true, Some("cursor123".to_string()), None);
+
+        let json = serde_json::to_string(&cursor_based).unwrap();
+        assert!(json.contains("\"limit\":25"));
+        assert!(json.contains("\"has_more\":true"));
+        assert!(json.contains("cursor123"));
+        assert!(!json.contains("offset"));
+        assert!(!json.contains("total"));
+
+        let deserialized: PaginationInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.limit, 25);
+        assert!(deserialized.has_more);
+        assert!(deserialized.cursor.is_some());
+    }
+
+    #[test]
+    fn test_pagination_cursor_forward_backward() {
+        let forward = PaginationCursor::new(100, None, true);
+        assert!(forward.forward);
+
+        let backward = PaginationCursor::new(100, None, false);
+        assert!(!backward.forward);
+    }
+
+    #[test]
+    fn test_pagination_info_no_more_results() {
+        let no_more = PaginationInfo::cursor_based(20, false, None, Some("prev".to_string()));
+
+        assert_eq!(no_more.has_more, false);
+        assert!(no_more.cursor.is_none());
+        assert!(no_more.prev_cursor.is_some());
+    }
+
+    #[test]
+    fn test_pagination_offset_compatibility() {
+        // Old style offset pagination should still work
+        let old_style = PaginationInfo::new(0, 10, 50);
+        assert!(old_style.offset.is_some());
+        assert_eq!(old_style.offset, Some(0));
+        assert_eq!(old_style.total, Some(50));
     }
 }
