@@ -787,7 +787,7 @@ mod tests {
         assert!(result.is_ok());
 
         let response = result.unwrap().0;
-        assert_eq!(response.pagination.offset, 10);
+        assert_eq!(response.pagination.offset, Some(10));
         assert_eq!(response.pagination.limit, 5);
     }
 
@@ -813,7 +813,7 @@ mod tests {
         assert_eq!(response.query, "rust");
         assert!(response.results.len() <= 10);
         assert!(response.pagination.limit == 10);
-        assert!(response.pagination.offset == 0);
+        assert!(response.pagination.offset == Some(0));
     }
 
     #[tokio::test]
