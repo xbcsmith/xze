@@ -25,6 +25,11 @@ tower = { workspace = true }
 tower-http = { workspace = true }
 tokio = { workspace = true }
 
+# WebSocket support
+axum-tungstenite = "0.3"
+tokio-tungstenite = "0.21"
+futures-util = "0.3"
+
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }

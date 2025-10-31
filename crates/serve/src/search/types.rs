@@ -90,7 +90,7 @@ pub type Result<T> = std::result::Result<T, SearchError>;
 ///     aggregations: None,
 /// };
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 #[cfg_attr(feature = "openapi", schema(example = json!({
     "query": "rust async programming",
@@ -104,8 +104,14 @@ pub type Result<T> = std::result::Result<T, SearchError>;
     }
 })))]
 pub struct AdvancedSearchRequest {
-    /// The search query string
+    /// The search query string (simple query mode)
     pub query: String,
+
+    /// Optional multi-field search configuration
+    pub multi_match: Option<MultiMatchQuery>,
+
+    /// Optional boolean query with must/should/must_not operators
+    pub bool_query: Option<BoolQuery>,
 
     /// Optional filters to narrow results
     pub filters: Option<SearchFilters>,
@@ -126,11 +132,26 @@ impl AdvancedSearchRequest {
     /// Returns `SearchError::InvalidFilter` if filters are invalid
     /// Returns `SearchError::InvalidOptions` if options are invalid
     pub fn validate(&self) -> Result<()> {
-        // Validate query
-        if self.query.trim().is_empty() {
+        // Validate that at least one query type is provided
+        let has_simple_query = !self.query.trim().is_empty();
+        let has_multi_match = self.multi_match.is_some();
+        let has_bool_query = self.bool_query.is_some();
+
+        if !has_simple_query && !has_multi_match && !has_bool_query {
             return Err(SearchError::InvalidQuery(
-                "Query cannot be empty".to_string(),
+                "At least one query type (query, multi_match, or bool_query) must be provided"
+                    .to_string(),
             ));
+        }
+
+        // Validate multi_match if present
+        if let Some(ref multi_match) = self.multi_match {
+            multi_match.validate()?;
+        }
+
+        // Validate bool_query if present
+        if let Some(ref bool_query) = self.bool_query {
+            bool_query.validate()?;
         }
 
         // Validate filters
@@ -147,8 +168,292 @@ impl AdvancedSearchRequest {
     }
 }
 
+/// Multi-field search query configuration
+///
+/// Allows searching across multiple fields with optional field boosting.
+///
+/// # Examples
+///
+/// ```rust
+/// use xze_serve::search::types::{MultiMatchQuery, FieldConfig};
+///
+/// let multi_match = MultiMatchQuery {
+///     query: "rust async".to_string(),
+///     fields: vec![
+///         FieldConfig { name: "title".to_string(), boost: Some(2.0) },
+///         FieldConfig { name: "content".to_string(), boost: Some(1.0) },
+///         FieldConfig { name: "tags".to_string(), boost: Some(1.5) },
+///     ],
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct MultiMatchQuery {
+    /// The query text to search for
+    pub query: String,
+
+    /// Fields to search with optional boosting
+    pub fields: Vec<FieldConfig>,
+}
+
+impl MultiMatchQuery {
+    /// Validates the multi-match query
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if query is empty or fields are empty
+    pub fn validate(&self) -> Result<()> {
+        if self.query.trim().is_empty() {
+            return Err(SearchError::InvalidQuery(
+                "Multi-match query cannot be empty".to_string(),
+            ));
+        }
+
+        if self.fields.is_empty() {
+            return Err(SearchError::InvalidQuery(
+                "Multi-match must specify at least one field".to_string(),
+            ));
+        }
+
+        for field in &self.fields {
+            field.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Field configuration for multi-field search
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct FieldConfig {
+    /// Field name (e.g., "title", "content", "tags")
+    pub name: String,
+
+    /// Optional boost factor (default 1.0)
+    /// Higher values give more weight to this field
+    pub boost: Option<f32>,
+}
+
+impl FieldConfig {
+    /// Validates the field configuration
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if field name is invalid or boost is invalid
+    pub fn validate(&self) -> Result<()> {
+        if self.name.trim().is_empty() {
+            return Err(SearchError::InvalidQuery(
+                "Field name cannot be empty".to_string(),
+            ));
+        }
+
+        // Validate field name is one of the supported fields
+        let valid_fields = ["title", "content", "tags", "path", "repository"];
+        if !valid_fields.contains(&self.name.as_str()) {
+            return Err(SearchError::InvalidQuery(format!(
+                "Invalid field name '{}'. Must be one of: {}",
+                self.name,
+                valid_fields.join(", ")
+            )));
+        }
+
+        // Validate boost if present
+        if let Some(boost) = self.boost {
+            if boost <= 0.0 || !boost.is_finite() {
+                return Err(SearchError::InvalidQuery(format!(
+                    "Field boost must be positive and finite, got: {}",
+                    boost
+                )));
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Gets the boost value, defaulting to 1.0 if not specified
+    pub fn get_boost(&self) -> f32 {
+        self.boost.unwrap_or(1.0)
+    }
+}
+
+/// Boolean query with must, should, and must_not clauses
+///
+/// # Examples
+///
+/// ```rust
+/// use xze_serve::search::types::{BoolQuery, QueryClause};
+///
+/// let bool_query = BoolQuery {
+///     must: Some(vec![
+///         QueryClause::Match { field: "content".to_string(), query: "rust".to_string() },
+///     ]),
+///     should: Some(vec![
+///         QueryClause::Match { field: "tags".to_string(), query: "async".to_string() },
+///     ]),
+///     must_not: Some(vec![
+///         QueryClause::Match { field: "content".to_string(), query: "deprecated".to_string() },
+///     ]),
+///     minimum_should_match: Some(1),
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct BoolQuery {
+    /// Clauses that must match (AND)
+    pub must: Option<Vec<QueryClause>>,
+
+    /// Clauses that should match (OR, affects scoring)
+    pub should: Option<Vec<QueryClause>>,
+
+    /// Clauses that must not match (NOT)
+    pub must_not: Option<Vec<QueryClause>>,
+
+    /// Minimum number of should clauses that must match
+    pub minimum_should_match: Option<usize>,
+}
+
+impl BoolQuery {
+    /// Validates the boolean query
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if all clauses are empty or invalid
+    pub fn validate(&self) -> Result<()> {
+        let has_must = self.must.as_ref().is_some_and(|v| !v.is_empty());
+        let has_should = self.should.as_ref().is_some_and(|v| !v.is_empty());
+        let has_must_not = self.must_not.as_ref().is_some_and(|v| !v.is_empty());
+
+        if !has_must && !has_should && !has_must_not {
+            return Err(SearchError::InvalidQuery(
+                "Boolean query must have at least one clause (must, should, or must_not)"
+                    .to_string(),
+            ));
+        }
+
+        // Validate all clauses
+        if let Some(ref must) = self.must {
+            for clause in must {
+                clause.validate()?;
+            }
+        }
+
+        if let Some(ref should) = self.should {
+            for clause in should {
+                clause.validate()?;
+            }
+
+            // Validate minimum_should_match
+            if let Some(min) = self.minimum_should_match {
+                if min > should.len() {
+                    return Err(SearchError::InvalidQuery(format!(
+                        "minimum_should_match ({}) cannot exceed number of should clauses ({})",
+                        min,
+                        should.len()
+                    )));
+                }
+            }
+        }
+
+        if let Some(ref must_not) = self.must_not {
+            for clause in must_not {
+                clause.validate()?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// Individual query clause for boolean queries
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum QueryClause {
+    /// Match query on a specific field
+    Match {
+        /// Field name
+        field: String,
+        /// Query text
+        query: String,
+    },
+    /// Term query for exact matching
+    Term {
+        /// Field name
+        field: String,
+        /// Exact value to match
+        value: String,
+    },
+    /// Range query for numeric or date fields
+    Range {
+        /// Field name
+        field: String,
+        /// Minimum value (inclusive)
+        gte: Option<f32>,
+        /// Maximum value (inclusive)
+        lte: Option<f32>,
+    },
+}
+
+impl QueryClause {
+    /// Validates the query clause
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if clause parameters are invalid
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            QueryClause::Match { field, query } => {
+                if field.trim().is_empty() {
+                    return Err(SearchError::InvalidQuery(
+                        "Match clause field cannot be empty".to_string(),
+                    ));
+                }
+                if query.trim().is_empty() {
+                    return Err(SearchError::InvalidQuery(
+                        "Match clause query cannot be empty".to_string(),
+                    ));
+                }
+            }
+            QueryClause::Term { field, value } => {
+                if field.trim().is_empty() {
+                    return Err(SearchError::InvalidQuery(
+                        "Term clause field cannot be empty".to_string(),
+                    ));
+                }
+                if value.trim().is_empty() {
+                    return Err(SearchError::InvalidQuery(
+                        "Term clause value cannot be empty".to_string(),
+                    ));
+                }
+            }
+            QueryClause::Range { field, gte, lte } => {
+                if field.trim().is_empty() {
+                    return Err(SearchError::InvalidQuery(
+                        "Range clause field cannot be empty".to_string(),
+                    ));
+                }
+                if gte.is_none() && lte.is_none() {
+                    return Err(SearchError::InvalidQuery(
+                        "Range clause must specify at least one of gte or lte".to_string(),
+                    ));
+                }
+                if let (Some(min), Some(max)) = (gte, lte) {
+                    if min > max {
+                        return Err(SearchError::InvalidQuery(format!(
+                            "Range clause gte ({}) cannot exceed lte ({})",
+                            min, max
+                        )));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Search filters to narrow down results
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchFilters {
     /// Filter by documentation categories (tutorial, how-to, explanation, reference)
@@ -206,7 +511,7 @@ impl SearchFilters {
 }
 
 /// Search options for controlling result format and pagination
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchOptions {
     /// Maximum number of results to return (default: 20, max: 100)
@@ -271,7 +576,7 @@ impl SearchOptions {
 }
 
 /// Aggregation request for computing statistics
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct AggregationRequest {
     /// Aggregate results by category
@@ -285,7 +590,7 @@ pub struct AggregationRequest {
 }
 
 /// Similarity score range filter
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SimilarityRange {
     /// Minimum similarity score (0.0 to 1.0)
@@ -331,7 +636,7 @@ impl SimilarityRange {
 }
 
 /// Date range filter
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct DateRange {
     /// Start date (inclusive)
@@ -361,7 +666,7 @@ impl DateRange {
 }
 
 /// Search response structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchResponse {
     /// The original query
@@ -381,7 +686,7 @@ pub struct SearchResponse {
 }
 
 /// Individual search result
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SearchResult {
     /// Unique identifier
@@ -416,7 +721,7 @@ pub struct SearchResult {
 }
 
 /// Aggregation response structure
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct AggregationResponse {
     /// Results grouped by category
@@ -430,7 +735,7 @@ pub struct AggregationResponse {
 }
 
 /// Category count for aggregations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct CategoryCount {
     /// Category name
@@ -441,7 +746,7 @@ pub struct CategoryCount {
 }
 
 /// Similarity range count for aggregations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct SimilarityRangeCount {
     /// Similarity range
@@ -452,7 +757,7 @@ pub struct SimilarityRangeCount {
 }
 
 /// Date count for aggregations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct DateCount {
     /// Date period (e.g., "2024-01")
@@ -463,7 +768,7 @@ pub struct DateCount {
 }
 
 /// Pagination information supporting both offset and cursor-based pagination
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PaginationInfo {
     /// Current offset (for offset-based pagination)
@@ -549,7 +854,7 @@ impl PaginationInfo {
 ///
 /// Encodes the position in a result set for cursor-based pagination.
 /// This is more efficient than offset-based pagination for large datasets.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[cfg_attr(feature = "openapi", derive(ToSchema))]
 pub struct PaginationCursor {
     /// Last seen ID
@@ -658,8 +963,166 @@ impl PaginationCursor {
 fn is_valid_category(category: &str) -> bool {
     matches!(
         category.to_lowercase().as_str(),
-        "tutorial" | "how-to" | "howto" | "explanation" | "reference"
+        "tutorial" | "explanation" | "reference" | "how-to"
     )
+}
+
+/// Saved search configuration
+///
+/// Allows users to save frequently used search queries for quick access.
+///
+/// # Examples
+///
+/// ```rust
+/// use xze_serve::search::types::{SavedSearch, AdvancedSearchRequest};
+///
+/// let saved = SavedSearch {
+///     id: Some(1),
+///     user_id: "user123".to_string(),
+///     name: "Rust Async Docs".to_string(),
+///     description: Some("Find async/await documentation".to_string()),
+///     search_request: AdvancedSearchRequest {
+///         query: "rust async".to_string(),
+///         multi_match: None,
+///         bool_query: None,
+///         filters: None,
+///         options: None,
+///         aggregations: None,
+///     },
+///     created_at: chrono::Utc::now(),
+///     updated_at: chrono::Utc::now(),
+/// };
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct SavedSearch {
+    /// Unique identifier (assigned by database)
+    pub id: Option<i32>,
+
+    /// User who owns this saved search
+    pub user_id: String,
+
+    /// Human-readable name for the search
+    pub name: String,
+
+    /// Optional description
+    pub description: Option<String>,
+
+    /// The search request configuration
+    pub search_request: AdvancedSearchRequest,
+
+    /// When the search was created
+    pub created_at: DateTime<Utc>,
+
+    /// When the search was last updated
+    pub updated_at: DateTime<Utc>,
+}
+
+impl SavedSearch {
+    /// Validates the saved search
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if name is empty or search_request is invalid
+    pub fn validate(&self) -> Result<()> {
+        if self.name.trim().is_empty() {
+            return Err(SearchError::InvalidQuery(
+                "Saved search name cannot be empty".to_string(),
+            ));
+        }
+
+        if self.user_id.trim().is_empty() {
+            return Err(SearchError::InvalidQuery(
+                "User ID cannot be empty".to_string(),
+            ));
+        }
+
+        // Validate the embedded search request
+        self.search_request.validate()?;
+
+        Ok(())
+    }
+}
+
+/// Request to create a new saved search
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct CreateSavedSearchRequest {
+    /// Human-readable name for the search
+    pub name: String,
+
+    /// Optional description
+    pub description: Option<String>,
+
+    /// The search request configuration to save
+    pub search_request: AdvancedSearchRequest,
+}
+
+impl CreateSavedSearchRequest {
+    /// Validates the create request
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if validation fails
+    pub fn validate(&self) -> Result<()> {
+        if self.name.trim().is_empty() {
+            return Err(SearchError::InvalidQuery(
+                "Saved search name cannot be empty".to_string(),
+            ));
+        }
+
+        self.search_request.validate()?;
+
+        Ok(())
+    }
+}
+
+/// Request to update an existing saved search
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct UpdateSavedSearchRequest {
+    /// Optional new name
+    pub name: Option<String>,
+
+    /// Optional new description
+    pub description: Option<String>,
+
+    /// Optional new search request configuration
+    pub search_request: Option<AdvancedSearchRequest>,
+}
+
+impl UpdateSavedSearchRequest {
+    /// Validates the update request
+    ///
+    /// # Errors
+    ///
+    /// Returns `SearchError::InvalidQuery` if validation fails
+    pub fn validate(&self) -> Result<()> {
+        if let Some(ref name) = self.name {
+            if name.trim().is_empty() {
+                return Err(SearchError::InvalidQuery(
+                    "Saved search name cannot be empty".to_string(),
+                ));
+            }
+        }
+
+        if let Some(ref search_request) = self.search_request {
+            search_request.validate()?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Response containing a list of saved searches
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "openapi", derive(ToSchema))]
+pub struct SavedSearchListResponse {
+    /// List of saved searches
+    pub searches: Vec<SavedSearch>,
+
+    /// Total count of saved searches for the user
+    pub total: usize,
 }
 
 #[cfg(test)]
@@ -667,9 +1130,233 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_multi_match_query_validation() {
+        let multi_match = MultiMatchQuery {
+            query: "rust async".to_string(),
+            fields: vec![
+                FieldConfig {
+                    name: "title".to_string(),
+                    boost: Some(2.0),
+                },
+                FieldConfig {
+                    name: "content".to_string(),
+                    boost: Some(1.0),
+                },
+            ],
+        };
+        assert!(multi_match.validate().is_ok());
+
+        // Empty query should fail
+        let invalid_multi_match = MultiMatchQuery {
+            query: "".to_string(),
+            fields: vec![FieldConfig {
+                name: "title".to_string(),
+                boost: None,
+            }],
+        };
+        assert!(invalid_multi_match.validate().is_err());
+
+        // Empty fields should fail
+        let invalid_multi_match = MultiMatchQuery {
+            query: "test".to_string(),
+            fields: vec![],
+        };
+        assert!(invalid_multi_match.validate().is_err());
+    }
+
+    #[test]
+    fn test_field_config_validation() {
+        let valid_field = FieldConfig {
+            name: "content".to_string(),
+            boost: Some(1.5),
+        };
+        assert!(valid_field.validate().is_ok());
+        assert_eq!(valid_field.get_boost(), 1.5);
+
+        // Invalid field name
+        let invalid_field = FieldConfig {
+            name: "invalid_field".to_string(),
+            boost: Some(1.0),
+        };
+        assert!(invalid_field.validate().is_err());
+
+        // Invalid boost
+        let invalid_boost = FieldConfig {
+            name: "title".to_string(),
+            boost: Some(-1.0),
+        };
+        assert!(invalid_boost.validate().is_err());
+
+        // Zero boost
+        let zero_boost = FieldConfig {
+            name: "title".to_string(),
+            boost: Some(0.0),
+        };
+        assert!(zero_boost.validate().is_err());
+
+        // Default boost
+        let default_boost = FieldConfig {
+            name: "title".to_string(),
+            boost: None,
+        };
+        assert_eq!(default_boost.get_boost(), 1.0);
+    }
+
+    #[test]
+    fn test_bool_query_validation() {
+        let bool_query = BoolQuery {
+            must: Some(vec![QueryClause::Match {
+                field: "content".to_string(),
+                query: "rust".to_string(),
+            }]),
+            should: Some(vec![QueryClause::Match {
+                field: "tags".to_string(),
+                query: "async".to_string(),
+            }]),
+            must_not: Some(vec![QueryClause::Match {
+                field: "content".to_string(),
+                query: "deprecated".to_string(),
+            }]),
+            minimum_should_match: Some(1),
+        };
+        assert!(bool_query.validate().is_ok());
+
+        // Empty bool query should fail
+        let empty_bool = BoolQuery {
+            must: None,
+            should: None,
+            must_not: None,
+            minimum_should_match: None,
+        };
+        assert!(empty_bool.validate().is_err());
+
+        // Invalid minimum_should_match
+        let invalid_min = BoolQuery {
+            must: None,
+            should: Some(vec![QueryClause::Match {
+                field: "content".to_string(),
+                query: "test".to_string(),
+            }]),
+            must_not: None,
+            minimum_should_match: Some(5),
+        };
+        assert!(invalid_min.validate().is_err());
+    }
+
+    #[test]
+    fn test_query_clause_validation() {
+        // Valid match clause
+        let match_clause = QueryClause::Match {
+            field: "content".to_string(),
+            query: "rust".to_string(),
+        };
+        assert!(match_clause.validate().is_ok());
+
+        // Empty field
+        let empty_field = QueryClause::Match {
+            field: "".to_string(),
+            query: "rust".to_string(),
+        };
+        assert!(empty_field.validate().is_err());
+
+        // Empty query
+        let empty_query = QueryClause::Match {
+            field: "content".to_string(),
+            query: "".to_string(),
+        };
+        assert!(empty_query.validate().is_err());
+
+        // Valid term clause
+        let term_clause = QueryClause::Term {
+            field: "category".to_string(),
+            value: "tutorial".to_string(),
+        };
+        assert!(term_clause.validate().is_ok());
+
+        // Valid range clause
+        let range_clause = QueryClause::Range {
+            field: "similarity".to_string(),
+            gte: Some(0.5),
+            lte: Some(1.0),
+        };
+        assert!(range_clause.validate().is_ok());
+
+        // Invalid range (gte > lte)
+        let invalid_range = QueryClause::Range {
+            field: "similarity".to_string(),
+            gte: Some(1.0),
+            lte: Some(0.5),
+        };
+        assert!(invalid_range.validate().is_err());
+
+        // Range with no bounds
+        let no_bounds = QueryClause::Range {
+            field: "similarity".to_string(),
+            gte: None,
+            lte: None,
+        };
+        assert!(no_bounds.validate().is_err());
+    }
+
+    #[test]
+    fn test_advanced_search_request_with_multi_match() {
+        let request = AdvancedSearchRequest {
+            query: "".to_string(),
+            multi_match: Some(MultiMatchQuery {
+                query: "rust async".to_string(),
+                fields: vec![FieldConfig {
+                    name: "title".to_string(),
+                    boost: Some(2.0),
+                }],
+            }),
+            bool_query: None,
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_advanced_search_request_with_bool_query() {
+        let request = AdvancedSearchRequest {
+            query: "".to_string(),
+            multi_match: None,
+            bool_query: Some(BoolQuery {
+                must: Some(vec![QueryClause::Match {
+                    field: "content".to_string(),
+                    query: "rust".to_string(),
+                }]),
+                should: None,
+                must_not: None,
+                minimum_should_match: None,
+            }),
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(request.validate().is_ok());
+    }
+
+    #[test]
+    fn test_advanced_search_request_no_query() {
+        let request = AdvancedSearchRequest {
+            query: "".to_string(),
+            multi_match: None,
+            bool_query: None,
+            filters: None,
+            options: None,
+            aggregations: None,
+        };
+        assert!(request.validate().is_err());
+    }
+
+    #[test]
     fn test_advanced_search_request_validation_success() {
         let request = AdvancedSearchRequest {
             query: "test query".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -681,13 +1368,15 @@ mod tests {
     #[test]
     fn test_advanced_search_request_validation_empty_query() {
         let request = AdvancedSearchRequest {
-            query: "   ".to_string(),
+            query: "".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
         };
-
-        assert!(request.validate().is_err());
+        let result = request.validate();
+        assert!(result.is_err());
     }
 
     #[test]
@@ -806,6 +1495,8 @@ mod tests {
     fn test_advanced_search_request_serialization() {
         let request = AdvancedSearchRequest {
             query: "test query".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: Some(vec!["tutorial".to_string()]),
                 similarity: Some(SimilarityRange {
@@ -1029,6 +1720,8 @@ mod tests {
 
         let request = AdvancedSearchRequest {
             query: "comprehensive test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: Some(vec![
                     "tutorial".to_string(),
@@ -1203,6 +1896,8 @@ mod tests {
     fn test_empty_query_variations() {
         let empty_string = AdvancedSearchRequest {
             query: "".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -1210,7 +1905,9 @@ mod tests {
         assert!(empty_string.validate().is_err());
 
         let whitespace_only = AdvancedSearchRequest {
-            query: "     ".to_string(),
+            query: "   ".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -1219,6 +1916,8 @@ mod tests {
 
         let tabs_and_newlines = AdvancedSearchRequest {
             query: "\t\n\r".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -1227,6 +1926,8 @@ mod tests {
 
         let valid_with_whitespace = AdvancedSearchRequest {
             query: "  valid query  ".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -1339,5 +2040,182 @@ mod tests {
         assert!(old_style.offset.is_some());
         assert_eq!(old_style.offset, Some(0));
         assert_eq!(old_style.total, Some(50));
+    }
+
+    #[test]
+    fn test_saved_search_validation() {
+        let saved = SavedSearch {
+            id: Some(1),
+            user_id: "user123".to_string(),
+            name: "Rust Async".to_string(),
+            description: Some("Async docs".to_string()),
+            search_request: AdvancedSearchRequest {
+                query: "rust async".to_string(),
+                multi_match: None,
+                bool_query: None,
+                filters: None,
+                options: None,
+                aggregations: None,
+            },
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        assert!(saved.validate().is_ok());
+
+        // Empty name should fail
+        let invalid_name = SavedSearch {
+            id: Some(1),
+            user_id: "user123".to_string(),
+            name: "".to_string(),
+            description: None,
+            search_request: AdvancedSearchRequest {
+                query: "test".to_string(),
+                multi_match: None,
+                bool_query: None,
+                filters: None,
+                options: None,
+                aggregations: None,
+            },
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        assert!(invalid_name.validate().is_err());
+
+        // Empty user_id should fail
+        let invalid_user = SavedSearch {
+            id: Some(1),
+            user_id: "".to_string(),
+            name: "Test".to_string(),
+            description: None,
+            search_request: AdvancedSearchRequest {
+                query: "test".to_string(),
+                multi_match: None,
+                bool_query: None,
+                filters: None,
+                options: None,
+                aggregations: None,
+            },
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+        assert!(invalid_user.validate().is_err());
+    }
+
+    #[test]
+    fn test_create_saved_search_request_validation() {
+        let create_request = CreateSavedSearchRequest {
+            name: "My Search".to_string(),
+            description: Some("Test search".to_string()),
+            search_request: AdvancedSearchRequest {
+                query: "rust".to_string(),
+                multi_match: None,
+                bool_query: None,
+                filters: None,
+                options: None,
+                aggregations: None,
+            },
+        };
+        assert!(create_request.validate().is_ok());
+
+        // Empty name should fail
+        let invalid = CreateSavedSearchRequest {
+            name: "".to_string(),
+            description: None,
+            search_request: AdvancedSearchRequest {
+                query: "test".to_string(),
+                multi_match: None,
+                bool_query: None,
+                filters: None,
+                options: None,
+                aggregations: None,
+            },
+        };
+        assert!(invalid.validate().is_err());
+    }
+
+    #[test]
+    fn test_update_saved_search_request_validation() {
+        let update_request = UpdateSavedSearchRequest {
+            name: Some("New Name".to_string()),
+            description: Some("Updated description".to_string()),
+            search_request: None,
+        };
+        assert!(update_request.validate().is_ok());
+
+        // Empty name should fail
+        let invalid = UpdateSavedSearchRequest {
+            name: Some("".to_string()),
+            description: None,
+            search_request: None,
+        };
+        assert!(invalid.validate().is_err());
+
+        // None values should be valid
+        let all_none = UpdateSavedSearchRequest {
+            name: None,
+            description: None,
+            search_request: None,
+        };
+        assert!(all_none.validate().is_ok());
+    }
+
+    #[test]
+    fn test_saved_search_list_response() {
+        let response = SavedSearchListResponse {
+            searches: vec![],
+            total: 0,
+        };
+        assert_eq!(response.searches.len(), 0);
+        assert_eq!(response.total, 0);
+
+        let response_with_items = SavedSearchListResponse {
+            searches: vec![SavedSearch {
+                id: Some(1),
+                user_id: "user123".to_string(),
+                name: "Test".to_string(),
+                description: None,
+                search_request: AdvancedSearchRequest {
+                    query: "rust".to_string(),
+                    multi_match: None,
+                    bool_query: None,
+                    filters: None,
+                    options: None,
+                    aggregations: None,
+                },
+                created_at: Utc::now(),
+                updated_at: Utc::now(),
+            }],
+            total: 1,
+        };
+        assert_eq!(response_with_items.searches.len(), 1);
+        assert_eq!(response_with_items.total, 1);
+    }
+
+    #[test]
+    fn test_saved_search_serialization() {
+        let saved = SavedSearch {
+            id: Some(1),
+            user_id: "user123".to_string(),
+            name: "Test Search".to_string(),
+            description: Some("A test".to_string()),
+            search_request: AdvancedSearchRequest {
+                query: "rust async".to_string(),
+                multi_match: None,
+                bool_query: None,
+                filters: None,
+                options: None,
+                aggregations: None,
+            },
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
+        };
+
+        let json = serde_json::to_string(&saved).unwrap();
+        let deserialized: SavedSearch = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.id, saved.id);
+        assert_eq!(deserialized.user_id, saved.user_id);
+        assert_eq!(deserialized.name, saved.name);
+        assert_eq!(deserialized.description, saved.description);
     }
 }

@@ -558,6 +558,8 @@ mod tests {
     async fn test_handle_search_advanced_success() {
         let request = AdvancedSearchRequest {
             query: "rust async".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: Some(vec!["tutorial".to_string()]),
                 similarity: None,
@@ -587,6 +589,8 @@ mod tests {
     async fn test_handle_search_advanced_validation_error() {
         let request = AdvancedSearchRequest {
             query: "   ".to_string(), // Empty query
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -600,6 +604,8 @@ mod tests {
     async fn test_handle_search_with_filters() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: Some(vec!["tutorial".to_string(), "reference".to_string()]),
                 similarity: Some(SimilarityRange {
@@ -622,6 +628,8 @@ mod tests {
     async fn test_handle_search_with_aggregations() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: Some(AggregationRequest {
@@ -653,6 +661,8 @@ mod tests {
     async fn test_handle_search_advanced_with_all_options() {
         let request = AdvancedSearchRequest {
             query: "comprehensive test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: Some(vec![
                     "tutorial".to_string(),
@@ -693,6 +703,8 @@ mod tests {
     async fn test_handle_search_advanced_invalid_similarity_range() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: None,
                 similarity: Some(SimilarityRange {
@@ -715,6 +727,8 @@ mod tests {
     async fn test_handle_search_advanced_invalid_category() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: Some(vec!["invalid_category".to_string()]),
                 similarity: None,
@@ -734,6 +748,8 @@ mod tests {
     async fn test_handle_search_advanced_max_results_exceeded() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(200), // Exceeds max of 100
@@ -753,6 +769,8 @@ mod tests {
     async fn test_handle_search_advanced_zero_max_results() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(0), // Invalid: must be > 0
@@ -772,6 +790,8 @@ mod tests {
     async fn test_handle_search_advanced_pagination() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(5),
@@ -795,6 +815,8 @@ mod tests {
     async fn test_handle_search_advanced_response_structure() {
         let request = AdvancedSearchRequest {
             query: "rust".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(10),
@@ -820,6 +842,8 @@ mod tests {
     async fn test_handle_search_advanced_empty_results() {
         let request = AdvancedSearchRequest {
             query: "xyzabc123nonexistentquery456".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
@@ -839,6 +863,8 @@ mod tests {
     async fn test_handle_search_advanced_aggregations_only() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(0),
@@ -899,6 +925,8 @@ mod tests {
     async fn test_handle_search_advanced_multiple_tags() {
         let request = AdvancedSearchRequest {
             query: "documentation".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: None,
                 similarity: None,
@@ -922,6 +950,8 @@ mod tests {
     async fn test_handle_search_advanced_multiple_repositories() {
         let request = AdvancedSearchRequest {
             query: "search".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: Some(SearchFilters {
                 categories: None,
                 similarity: None,
@@ -945,6 +975,8 @@ mod tests {
     async fn test_handle_search_advanced_snippets_enabled() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(10),
@@ -972,6 +1004,8 @@ mod tests {
     async fn test_handle_search_advanced_group_by_category() {
         let request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(20),
@@ -991,6 +1025,8 @@ mod tests {
     async fn test_handle_search_advanced_group_by_repository() {
         let request = AdvancedSearchRequest {
             query: "documentation".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: Some(SearchOptions {
                 max_results: Some(20),

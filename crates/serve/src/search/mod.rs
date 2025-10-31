@@ -55,6 +55,7 @@
 pub mod handlers;
 pub mod metrics;
 pub mod types;
+pub mod websocket;
 
 #[cfg(feature = "openapi")]
 pub mod openapi;
@@ -74,6 +75,12 @@ pub use openapi::SearchApiDoc;
 #[cfg(feature = "metrics")]
 pub use metrics::SEARCH_METRICS;
 
+// Re-export WebSocket types
+pub use websocket::{
+    connection::ConnectionRegistry, streaming::StreamingConfig, types::ClientMessage,
+    types::ServerMessage, websocket_routes,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -83,6 +90,8 @@ mod tests {
         // Verify that main types are exported
         let _request = AdvancedSearchRequest {
             query: "test".to_string(),
+            multi_match: None,
+            bool_query: None,
             filters: None,
             options: None,
             aggregations: None,
