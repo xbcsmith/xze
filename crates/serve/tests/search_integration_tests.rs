@@ -242,6 +242,8 @@ async fn test_post_search_invalid_category() {
 fn test_search_request_serialization() {
     let request = AdvancedSearchRequest {
         query: "test query".to_string(),
+        multi_match: None,
+        bool_query: None,
         filters: Some(SearchFilters {
             categories: Some(vec!["tutorial".to_string()]),
             similarity: None,
