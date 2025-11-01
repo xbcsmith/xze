@@ -11,6 +11,7 @@ pub mod documentation;
 pub mod error;
 pub mod git;
 pub mod kb;
+pub mod keyword_extractor;
 pub mod pipeline;
 pub mod repository;
 pub mod search;
@@ -29,6 +30,7 @@ pub use kb::{
     calculate_content_hash, calculate_file_hash, CategorizedFiles, FileCategorizer, FileCategory,
     IncrementalLoader, KbError, KbStore, LoadStats, LoaderConfig,
 };
+pub use keyword_extractor::{ExtractedKeywords, KeywordExtractor, KeywordExtractorConfig};
 pub use repository::{CodeStructure, Repository, RepositoryManager};
 pub use search::EmbeddingCache;
 pub use semantic::{ChunkMetadata, SemanticChunk, SentenceSplitter};

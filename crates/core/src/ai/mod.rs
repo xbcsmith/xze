@@ -14,7 +14,7 @@ pub mod metrics;
 pub mod prompts;
 pub mod validator;
 
-pub use client::OllamaClient;
+pub use client::{GenerateOptions, GenerateRequest, OllamaClient};
 pub use confidence::{ConfidenceScore, ConfidenceScorer, DocumentType, ScoringContext};
 pub use context::{ContextManager, PromptComponent, TokenBudget};
 pub use health::{CacheHealth, HealthCheck, HealthCheckResult, HealthStatus, ServiceHealth};
