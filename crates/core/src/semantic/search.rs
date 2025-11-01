@@ -384,7 +384,7 @@ pub async fn search_with_chunks(
 /// Returns `SearchError::EmbeddingParse` if the byte array length is not
 /// a multiple of 4 (size of f32)
 fn parse_embedding(bytes: &[u8]) -> Result<Vec<f32>, SearchError> {
-    if bytes.len() % 4 != 0 {
+    if !bytes.len().is_multiple_of(4) {
         return Err(SearchError::EmbeddingParse(format!(
             "Invalid embedding byte length: {} (must be multiple of 4)",
             bytes.len()

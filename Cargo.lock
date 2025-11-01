@@ -5120,7 +5120,9 @@ name = "xze"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
+ "reqwest",
  "serde",
  "serde_json",
  "serde_yaml",
