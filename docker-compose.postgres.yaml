@@ -1,0 +1,39 @@
+# Docker Compose - Backend Services Only
+
+services:
+  # PostgreSQL database with pgvector extension
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: xze-backend-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_backend:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - xze-backend-network
+    restart: unless-stopped
+    shm_size: 4096m
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+
+volumes:
+  # PostgreSQL data (persists documents and embeddings)
+  pgdata_backend:
+    name: xze-backend-pgdata
+
+networks:
+  xze-backend-network:
+    name: xze-backend-network
+    driver: bridge

@@ -1,0 +1,302 @@
+[
+  {
+    "query": "how to install rust",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_001", "doc_012", "doc_045"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "cargo build command",
+    "intent": "reference",
+    "relevant_docs": ["doc_023", "doc_034"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "async await rust",
+    "intent": "explanation",
+    "relevant_docs": ["doc_067", "doc_089", "doc_102"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "configure logging tracing",
+    "intent": "howto",
+    "relevant_docs": ["doc_044", "doc_055"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "error handling Result type",
+    "intent": "explanation",
+    "relevant_docs": ["doc_078", "doc_091", "doc_103"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "tokio runtime setup",
+    "intent": "howto",
+    "relevant_docs": ["doc_056", "doc_067"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "serde serialization derive",
+    "intent": "reference",
+    "relevant_docs": ["doc_088", "doc_099"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "what is ownership borrowing",
+    "intent": "explanation",
+    "relevant_docs": ["doc_011", "doc_022", "doc_033"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "test driven development rust",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_045", "doc_056", "doc_067"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "clippy warnings fix",
+    "intent": "howto",
+    "relevant_docs": ["doc_077", "doc_088"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "trait bounds generics",
+    "intent": "explanation",
+    "relevant_docs": ["doc_034", "doc_045", "doc_056"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "cargo workspace setup",
+    "intent": "howto",
+    "relevant_docs": ["doc_023", "doc_034"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "lifetime annotations syntax",
+    "intent": "reference",
+    "relevant_docs": ["doc_012", "doc_023"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "learn rust programming",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_001", "doc_012", "doc_023", "doc_034"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "panic unwrap expect difference",
+    "intent": "explanation",
+    "relevant_docs": ["doc_078", "doc_089"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "setup CI CD github actions",
+    "intent": "howto",
+    "relevant_docs": ["doc_099", "doc_110"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "match pattern syntax",
+    "intent": "reference",
+    "relevant_docs": ["doc_045", "doc_056"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "why use rust over C++",
+    "intent": "explanation",
+    "relevant_docs": ["doc_001", "doc_011"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "debugging rust programs",
+    "intent": "howto",
+    "relevant_docs": ["doc_067", "doc_078"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "macro rules declarative",
+    "intent": "reference",
+    "relevant_docs": ["doc_089", "doc_100"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "understand Send Sync traits",
+    "intent": "explanation",
+    "relevant_docs": ["doc_056", "doc_067", "doc_078"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "optimize release build",
+    "intent": "howto",
+    "relevant_docs": ["doc_023", "doc_034"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "Option enum API",
+    "intent": "reference",
+    "relevant_docs": ["doc_078", "doc_089"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "concurrent programming rust",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_056", "doc_067", "doc_078", "doc_089"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "fix common compilation errors",
+    "intent": "howto",
+    "relevant_docs": ["doc_044", "doc_055", "doc_066"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "Vec HashMap BTreeMap comparison",
+    "intent": "explanation",
+    "relevant_docs": ["doc_089", "doc_100"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "write unit tests integration tests",
+    "intent": "howto",
+    "relevant_docs": ["doc_045", "doc_056", "doc_067"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "Iterator trait methods",
+    "intent": "reference",
+    "relevant_docs": ["doc_089", "doc_100"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "closure syntax types",
+    "intent": "explanation",
+    "relevant_docs": ["doc_045", "doc_056"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "deploy rust application docker",
+    "intent": "howto",
+    "relevant_docs": ["doc_110", "doc_121"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "String str difference",
+    "intent": "explanation",
+    "relevant_docs": ["doc_023", "doc_034"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "implement custom trait",
+    "intent": "howto",
+    "relevant_docs": ["doc_034", "doc_045"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "smart pointers Box Rc Arc",
+    "intent": "explanation",
+    "relevant_docs": ["doc_056", "doc_067", "doc_078"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "cargo test documentation",
+    "intent": "reference",
+    "relevant_docs": ["doc_045", "doc_056"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "refactor legacy code rust",
+    "intent": "howto",
+    "relevant_docs": ["doc_077", "doc_088"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "deref coercion automatic",
+    "intent": "explanation",
+    "relevant_docs": ["doc_067", "doc_078"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "create rust library crate",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_023", "doc_034", "doc_045"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "environment variable configuration",
+    "intent": "howto",
+    "relevant_docs": ["doc_055", "doc_066"],
+    "min_similarity": 0.7
+  },
+  {
+    "query": "From Into trait conversion",
+    "intent": "reference",
+    "relevant_docs": ["doc_089", "doc_100"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "why move semantics rust",
+    "intent": "explanation",
+    "relevant_docs": ["doc_011", "doc_022", "doc_033"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "read write files tokio",
+    "intent": "howto",
+    "relevant_docs": ["doc_067", "doc_078"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "enum variant pattern matching",
+    "intent": "reference",
+    "relevant_docs": ["doc_045", "doc_056"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "benchmark performance criterion",
+    "intent": "howto",
+    "relevant_docs": ["doc_088", "doc_099"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "unsafe code when use",
+    "intent": "explanation",
+    "relevant_docs": ["doc_100", "doc_111"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "parse JSON serde",
+    "intent": "howto",
+    "relevant_docs": ["doc_088", "doc_099"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "module system organization",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_023", "doc_034"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "channels message passing",
+    "intent": "explanation",
+    "relevant_docs": ["doc_067", "doc_078"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "handle HTTP requests axum",
+    "intent": "howto",
+    "relevant_docs": ["doc_099", "doc_110"],
+    "min_similarity": 0.75
+  },
+  {
+    "query": "Debug Display trait implementation",
+    "intent": "reference",
+    "relevant_docs": ["doc_089", "doc_100"],
+    "min_similarity": 0.8
+  },
+  {
+    "query": "learning resources rust beginners",
+    "intent": "tutorial",
+    "relevant_docs": ["doc_001", "doc_012"],
+    "min_similarity": 0.7
+  }
+]
