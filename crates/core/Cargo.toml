@@ -55,6 +55,7 @@ regex = "1.10"
 
 # Caching (Phase 2: Multi-Intent Detection)
 moka = { version = "0.12", features = ["future"] }
+lru = "0.12"
 
 # Cryptographic hashing
 sha2 = "0.10"
@@ -106,4 +107,8 @@ default-features = false
 
 [[bench]]
 name = "intent_classification_bench"
+harness = false
+
+[[bench]]
+name = "keyword_extraction_bench"
 harness = false
