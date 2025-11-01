@@ -152,9 +152,7 @@ impl EnrichmentConfig {
             ));
         }
         if self.batch_workers == 0 {
-            return Err(XzeError::validation(
-                "batch_workers must be greater than 0",
-            ));
+            return Err(XzeError::validation("batch_workers must be greater than 0"));
         }
         if self.batch_size == 0 {
             return Err(XzeError::validation("batch_size must be greater than 0"));
@@ -449,9 +447,7 @@ impl DocumentEnricher {
 
         info!(
             "Starting batch enrichment of {} chunks (batch_size={}, workers={})",
-            total,
-            batch_size,
-            self.config.batch_workers
+            total, batch_size, self.config.batch_workers
         );
 
         let start = std::time::Instant::now();

@@ -7,8 +7,7 @@ use xze_core::{
     document_enrichment::{DocumentEnricher, EnrichmentConfig, EnrichmentStats},
     keyword_extractor::{KeywordExtractor, KeywordExtractorConfig},
     semantic::types::SemanticChunk,
-    ChunkMetadata,
-    Result,
+    ChunkMetadata, Result,
 };
 
 /// Helper function to create a test chunk
@@ -450,9 +449,10 @@ async fn test_chunk_metadata_preservation() {
     // Keywords should be enriched (extracted from content)
     assert!(!chunk.metadata.keywords.is_empty());
     // Verify keywords are extracted from the actual content
-    assert!(chunk.metadata.keywords.iter().any(|k|
-        k.contains("test") || k.contains("content") || k.contains("metadata") || k.contains("preservation")
-    ));
+    assert!(chunk.metadata.keywords.iter().any(|k| k.contains("test")
+        || k.contains("content")
+        || k.contains("metadata")
+        || k.contains("preservation")));
 }
 
 #[tokio::test]
