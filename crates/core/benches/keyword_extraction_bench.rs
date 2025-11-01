@@ -126,7 +126,9 @@ fn bench_frequency_extraction(c: &mut Criterion) {
         group.throughput(Throughput::Bytes(content.len() as u64));
         group.bench_with_input(BenchmarkId::from_parameter(name), content, |b, content| {
             b.iter(|| {
-                extractor.extract_with_frequency(black_box(content)).unwrap()
+                extractor
+                    .extract_with_frequency(black_box(content))
+                    .unwrap()
             });
         });
     }
@@ -151,9 +153,8 @@ fn bench_cache_operations(c: &mut Criterion) {
     });
 
     group.bench_function("cache_hit", |b| {
-        b.to_async(&rt).iter(|| async {
-            extractor.extract(black_box(MEDIUM_DOC)).await.unwrap()
-        });
+        b.to_async(&rt)
+            .iter(|| async { extractor.extract(black_box(MEDIUM_DOC)).await.unwrap() });
     });
 
     group.bench_function("cache_miss", |b| {
@@ -179,18 +180,15 @@ fn bench_batch_processing(c: &mut Criterion) {
     let documents: Vec<&str> = vec![SMALL_DOC, MEDIUM_DOC, LARGE_DOC];
 
     for size in [1, 3, 5, 10] {
-        let batch: Vec<&str> = (0..size)
-            .map(|i| documents[i % documents.len()])
-            .collect();
+        let batch: Vec<&str> = (0..size).map(|i| documents[i % documents.len()]).collect();
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}docs", size)),
             &batch,
             |b, batch| {
-                b.to_async(&rt).iter(|| async {
-                    extractor.extract_batch(black_box(batch)).await
-                });
+                b.to_async(&rt)
+                    .iter(|| async { extractor.extract_batch(black_box(batch)).await });
             },
         );
     }
@@ -211,9 +209,7 @@ fn bench_tokenization(c: &mut Criterion) {
     ] {
         group.throughput(Throughput::Bytes(content.len() as u64));
         group.bench_with_input(BenchmarkId::from_parameter(name), content, |b, content| {
-            b.iter(|| {
-                extractor.tokenize(black_box(content))
-            });
+            b.iter(|| extractor.tokenize(black_box(content)));
         });
     }
 
@@ -233,9 +229,7 @@ fn bench_cache_key_generation(c: &mut Criterion) {
     ] {
         group.throughput(Throughput::Bytes(content.len() as u64));
         group.bench_with_input(BenchmarkId::from_parameter(name), content, |b, content| {
-            b.iter(|| {
-                extractor.generate_cache_key(black_box(content))
-            });
+            b.iter(|| extractor.generate_cache_key(black_box(content)));
         });
     }
 
@@ -256,20 +250,14 @@ fn bench_keyword_cleaning(c: &mut Criterion) {
         "  tokio  ".to_string(),
     ];
 
-    let keywords_large: Vec<String> = (0..100)
-        .map(|i| format!("keyword_{}", i))
-        .collect();
+    let keywords_large: Vec<String> = (0..100).map(|i| format!("keyword_{}", i)).collect();
 
     group.bench_function("small_5_keywords", |b| {
-        b.iter(|| {
-            extractor.clean_keywords(black_box(keywords_small.clone()), 10)
-        });
+        b.iter(|| extractor.clean_keywords(black_box(keywords_small.clone()), 10));
     });
 
     group.bench_function("large_100_keywords", |b| {
-        b.iter(|| {
-            extractor.clean_keywords(black_box(keywords_large.clone()), 20)
-        });
+        b.iter(|| extractor.clean_keywords(black_box(keywords_large.clone()), 20));
     });
 
     group.finish();

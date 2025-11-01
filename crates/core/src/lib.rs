@@ -7,6 +7,7 @@
 pub mod ai;
 pub mod change_detector;
 pub mod config;
+pub mod document_enrichment;
 pub mod documentation;
 pub mod error;
 pub mod git;
@@ -25,6 +26,7 @@ pub use change_detector::{
     RepositoryChanges, SignificanceLevel, WebhookEvent,
 };
 pub use config::XzeConfig;
+pub use document_enrichment::{DocumentEnricher, EnrichmentConfig, EnrichmentStats};
 pub use error::{Result, XzeError};
 pub use kb::{
     calculate_content_hash, calculate_file_hash, CategorizedFiles, FileCategorizer, FileCategory,

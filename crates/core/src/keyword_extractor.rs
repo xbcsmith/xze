@@ -401,7 +401,7 @@ JSON response:"#,
 
     /// Call the LLM with the given prompt
     async fn call_llm(&self, prompt: &str) -> Result<String> {
-        use crate::ai::{GenerateRequest, GenerateOptions};
+        use crate::ai::{GenerateOptions, GenerateRequest};
 
         let request = GenerateRequest {
             model: self.config.model.clone(),
