@@ -663,7 +663,7 @@ pr-<feat>-<issue>
 **Format:**
 
 ```text
-<type>(<scope>): <description> (<JIRA-ISSUE>)
+<type>(<scope>): <description>
 
 [optional body explaining why change was made]
 
@@ -676,8 +676,7 @@ pr-<feat>-<issue>
 2. Scope is optional but recommended
 3. Description MUST be lowercase
 4. Description MUST use imperative mood ("add" not "added")
-5. JIRA issue MUST be uppercase in parentheses
-6. First line MUST be ≤72 characters (including JIRA issue)
+5. First line MUST be ≤72 characters
 
 **Types Explained:**
 
@@ -1094,7 +1093,6 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 - [ ] Branch name follows `pr-<feat>-<issue>` format (lowercase)
 - [ ] Commit message follows conventional commits
-- [ ] Commit message includes JIRA issue in uppercase
 - [ ] Commit message first line ≤72 characters
 - [ ] Commit uses imperative mood ("add" not "added")
 
@@ -1205,7 +1203,7 @@ All four cargo commands MUST pass before claiming done:
 6. Run: cargo clippy --all-targets --all-features -- -D warnings
 7. Run: cargo test --all-features
 8. Create: docs/explanations/{feature}_implementation.md
-9. Commit with proper format: <type>(<scope>): <description> (JIRA-ISSUE)
+9. Commit with proper format: <type>(<scope>): <description>
 10. Verify: All checklist items above are checked
 ```
 
