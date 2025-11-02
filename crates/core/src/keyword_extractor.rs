@@ -89,6 +89,15 @@ pub struct KeywordExtractorConfig {
 
     /// Temperature for LLM generation (0.0 to 1.0)
     pub temperature: f32,
+
+    /// Rollout percentage for gradual deployment (0-100)
+    pub rollout_percentage: u8,
+
+    /// Enable A/B testing mode
+    pub ab_test_enabled: bool,
+
+    /// Enable metrics collection
+    pub metrics_enabled: bool,
 }
 
 impl Default for KeywordExtractorConfig {
@@ -105,7 +114,53 @@ impl Default for KeywordExtractorConfig {
             min_document_length: 50,
             max_document_length: 8000,
             temperature: 0.1,
+            rollout_percentage: std::env::var("KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0),
+            ab_test_enabled: std::env::var("KEYWORD_EXTRACTION_AB_TEST")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(false),
+            metrics_enabled: std::env::var("KEYWORD_EXTRACTION_METRICS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(true),
         }
+    }
+}
+
+impl KeywordExtractorConfig {
+    /// Determine if LLM extraction should be used based on rollout percentage
+    ///
+    /// Uses deterministic random selection based on document content hash
+    /// to ensure consistent behavior for the same document.
+    ///
+    /// # Arguments
+    ///
+    /// * `content` - Document content to hash for rollout decision
+    ///
+    /// # Returns
+    ///
+    /// Returns true if LLM extraction should be used, false otherwise
+    pub fn should_use_llm_extraction(&self, content: &str) -> bool {
+        if self.rollout_percentage >= 100 {
+            return true;
+        }
+
+        if self.rollout_percentage == 0 {
+            return false;
+        }
+
+        // Use consistent hash-based selection
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        content.hash(&mut hasher);
+        let hash = hasher.finish();
+
+        (hash % 100) < self.rollout_percentage as u64
     }
 }
 
@@ -204,10 +259,87 @@ struct LlmKeywordResponse {
 ///
 /// The extractor is thread-safe and can be shared across async tasks
 /// using `Arc<KeywordExtractor>`.
+/// Metrics for keyword extraction operations
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+pub struct ExtractionMetrics {
+    /// Total number of extractions performed
+    pub total_extractions: usize,
+    /// Number of LLM-based extractions
+    pub llm_extractions: usize,
+    /// Number of frequency-based extractions
+    pub frequency_extractions: usize,
+    /// Number of cache hits
+    pub cache_hits: usize,
+    /// Number of cache misses
+    pub cache_misses: usize,
+    /// Number of fallback operations
+    pub fallback_count: usize,
+    /// Number of errors encountered
+    pub error_count: usize,
+    /// Total extraction time in milliseconds
+    pub total_time_ms: f64,
+}
+
+impl ExtractionMetrics {
+    /// Calculate cache hit rate as percentage
+    pub fn cache_hit_rate(&self) -> f64 {
+        let total = self.cache_hits + self.cache_misses;
+        if total > 0 {
+            (self.cache_hits as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Calculate average extraction time in milliseconds
+    pub fn avg_extraction_time_ms(&self) -> f64 {
+        if self.total_extractions > 0 {
+            self.total_time_ms / self.total_extractions as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// Calculate fallback rate as percentage
+    pub fn fallback_rate(&self) -> f64 {
+        if self.total_extractions > 0 {
+            (self.fallback_count as f64 / self.total_extractions as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Convert metrics to JSON-serializable format
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "total_extractions": self.total_extractions,
+            "method_breakdown": {
+                "llm": self.llm_extractions,
+                "frequency": self.frequency_extractions,
+            },
+            "cache": {
+                "hit_rate": format!("{:.1}%", self.cache_hit_rate()),
+                "hits": self.cache_hits,
+                "misses": self.cache_misses,
+            },
+            "fallback": {
+                "count": self.fallback_count,
+                "rate": format!("{:.1}%", self.fallback_rate()),
+            },
+            "errors": self.error_count,
+            "performance": {
+                "avg_extraction_time_ms": format!("{:.2}", self.avg_extraction_time_ms()),
+                "total_time_ms": format!("{:.2}", self.total_time_ms),
+            }
+        })
+    }
+}
+
 pub struct KeywordExtractor {
     config: KeywordExtractorConfig,
     client: OllamaClient,
     cache: Arc<Mutex<LruCache<String, ExtractedKeywords>>>,
+    metrics: Arc<Mutex<ExtractionMetrics>>,
 }
 
 impl KeywordExtractor {
@@ -243,6 +375,7 @@ impl KeywordExtractor {
             config,
             client,
             cache: Arc::new(Mutex::new(LruCache::new(cache_size))),
+            metrics: Arc::new(Mutex::new(ExtractionMetrics::default())),
         })
     }
 
@@ -278,8 +411,14 @@ impl KeywordExtractor {
     /// # }
     /// ```
     pub async fn extract(&self, content: &str) -> Result<ExtractedKeywords> {
+        let start_time = std::time::Instant::now();
+
         // Validate content
         if content.trim().is_empty() {
+            if self.config.metrics_enabled {
+                let mut metrics = self.metrics.lock().await;
+                metrics.error_count += 1;
+            }
             return Err(XzeError::validation("Content cannot be empty".to_string()));
         }
 
@@ -291,31 +430,81 @@ impl KeywordExtractor {
             let mut cache = self.cache.lock().await;
             if let Some(cached) = cache.get(&cache_key) {
                 debug!("Cache hit for content (hash: {})", &cache_key[..8]);
+
+                if self.config.metrics_enabled {
+                    let elapsed = start_time.elapsed().as_secs_f64() * 1000.0;
+                    let mut metrics = self.metrics.lock().await;
+                    metrics.total_extractions += 1;
+                    metrics.cache_hits += 1;
+                    metrics.total_time_ms += elapsed;
+                }
+
                 let mut result = cached.clone();
                 result.extraction_method = "cached".to_string();
                 return Ok(result);
+            } else if self.config.metrics_enabled {
+                let mut metrics = self.metrics.lock().await;
+                metrics.cache_misses += 1;
             }
         }
 
-        // Try LLM extraction
-        let result = match self.extract_with_llm(content).await {
-            Ok(keywords) => {
-                info!(
-                    "LLM extraction successful: {} total keywords",
-                    keywords.total_count()
-                );
-                keywords
-            }
-            Err(e) => {
-                warn!("LLM extraction failed: {}", e);
-                if self.config.enable_fallback {
-                    info!("Falling back to frequency-based extraction");
-                    self.extract_with_frequency(content)?
-                } else {
-                    return Err(e);
+        // Check if LLM extraction should be used based on rollout
+        let use_llm = self.config.should_use_llm_extraction(content);
+
+        // Try LLM extraction if enabled by rollout
+        let result = if use_llm {
+            match self.extract_with_llm(content).await {
+                Ok(keywords) => {
+                    info!(
+                        "LLM extraction successful: {} total keywords",
+                        keywords.total_count()
+                    );
+
+                    if self.config.metrics_enabled {
+                        let mut metrics = self.metrics.lock().await;
+                        metrics.llm_extractions += 1;
+                    }
+
+                    keywords
+                }
+                Err(e) => {
+                    warn!("LLM extraction failed: {}", e);
+
+                    if self.config.metrics_enabled {
+                        let mut metrics = self.metrics.lock().await;
+                        metrics.error_count += 1;
+                    }
+
+                    if self.config.enable_fallback {
+                        info!("Falling back to frequency-based extraction");
+
+                        if self.config.metrics_enabled {
+                            let mut metrics = self.metrics.lock().await;
+                            metrics.fallback_count += 1;
+                        }
+
+                        self.extract_with_frequency(content)?
+                    } else {
+                        return Err(e);
+                    }
                 }
             }
+        } else {
+            // Use frequency-based extraction directly
+            if self.config.metrics_enabled {
+                let mut metrics = self.metrics.lock().await;
+                metrics.frequency_extractions += 1;
+            }
+            self.extract_with_frequency(content)?
         };
+
+        // Update metrics
+        if self.config.metrics_enabled {
+            let elapsed = start_time.elapsed().as_secs_f64() * 1000.0;
+            let mut metrics = self.metrics.lock().await;
+            metrics.total_extractions += 1;
+            metrics.total_time_ms += elapsed;
+        }
 
         // Cache the result
         {
@@ -630,6 +819,72 @@ JSON response:"#,
     /// Check if the LLM service is available
     pub async fn is_llm_available(&self) -> bool {
         self.client.health_check().await.unwrap_or(false)
+    }
+
+    /// Get current extraction metrics
+    ///
+    /// # Returns
+    ///
+    /// Returns a clone of the current metrics
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::keyword_extractor::{KeywordExtractor, KeywordExtractorConfig};
+    ///
+    /// # async fn example() -> xze_core::Result<()> {
+    /// let extractor = KeywordExtractor::new(KeywordExtractorConfig::default())?;
+    /// let metrics = extractor.get_metrics().await;
+    /// println!("Total extractions: {}", metrics.total_extractions);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_metrics(&self) -> ExtractionMetrics {
+        self.metrics.lock().await.clone()
+    }
+
+    /// Reset all metrics counters to zero
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::keyword_extractor::{KeywordExtractor, KeywordExtractorConfig};
+    ///
+    /// # async fn example() -> xze_core::Result<()> {
+    /// let extractor = KeywordExtractor::new(KeywordExtractorConfig::default())?;
+    /// extractor.reset_metrics().await;
+    /// let metrics = extractor.get_metrics().await;
+    /// assert_eq!(metrics.total_extractions, 0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn reset_metrics(&self) {
+        let mut metrics = self.metrics.lock().await;
+        *metrics = ExtractionMetrics::default();
+        info!("Keyword extraction metrics reset");
+    }
+
+    /// Export metrics as JSON
+    ///
+    /// # Returns
+    ///
+    /// Returns metrics formatted as JSON value
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::keyword_extractor::{KeywordExtractor, KeywordExtractorConfig};
+    ///
+    /// # async fn example() -> xze_core::Result<()> {
+    /// let extractor = KeywordExtractor::new(KeywordExtractorConfig::default())?;
+    /// let json = extractor.export_metrics().await;
+    /// println!("{}", serde_json::to_string_pretty(&json)?);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn export_metrics(&self) -> serde_json::Value {
+        let metrics = self.metrics.lock().await;
+        metrics.to_json()
     }
 }
 

@@ -1,74 +1,163 @@
-# Rollback LLM Keyword Extraction
+# Rollback Procedures for LLM Keyword Extraction
 
-This guide provides procedures for rolling back the LLM keyword extraction feature if issues arise in production.
+This document provides step-by-step procedures for rolling back the LLM-based
+keyword extraction feature in case of issues.
 
-## Quick Rollback Options
+## Overview
 
-### Option 1: Disable via Environment Variable (Fastest)
+XZe provides multiple rollback mechanisms with different recovery times:
 
-This is the recommended approach for immediate rollback without code changes.
+| Method               | Recovery Time | Data Loss | Use Case           |
+| -------------------- | ------------- | --------- | ------------------ |
+| Environment Variable | < 1 minute    | None      | Quick disable      |
+| Configuration Change | < 5 minutes   | None      | Planned rollback   |
+| Code Rollback        | < 30 minutes  | None      | Critical issues    |
+| Data Reload          | 1-24 hours    | None      | Corrupted keywords |
+
+## Quick Rollback (Immediate)
+
+### Method 1: Environment Variable Disable
+
+The fastest way to disable LLM extraction without restarting services.
+
+**Steps**:
 
 ```bash
-# Disable LLM extraction completely
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
+# Disable LLM extraction immediately
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
 
-# OR disable the feature entirely
-unset XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE
+# Verify the change
+echo $KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE
 ```
 
-After setting the environment variable, restart the service:
+**Effect**: New document processing will use frequency-based extraction.
+Existing cached keywords remain unchanged.
+
+**Recovery Time**: Immediate (next document processed)
+
+**Rollback This Change**:
 
 ```bash
-# Systemd service
-sudo systemctl restart xze-server
-
-# Docker container
-docker restart xze
-
-# Kubernetes pod
-kubectl rollout restart deployment/xze
+# Re-enable LLM extraction
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=100
 ```
 
-**Recovery Time**: Less than 1 minute
+### Method 2: Service Restart with Disabled Feature
 
-**Impact**: New documents will use frequency-based extraction. Existing documents retain their keywords.
+For containerized deployments where environment changes require restart.
 
-### Option 2: Staged Rollback (Gradual)
-
-Reduce the rollout percentage incrementally to minimize impact:
+**Docker**:
 
 ```bash
-# Reduce to 50%
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=50
+# Stop the service
+docker-compose stop xze
 
-# Wait 10 minutes, monitor metrics
+# Update environment
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
 
-# Reduce to 25%
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=25
-
-# Wait 10 minutes, monitor metrics
-
-# Disable completely
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
+# Restart with new config
+docker-compose up -d xze
 ```
 
-**Recovery Time**: 30-60 minutes
-
-**Impact**: Gradual reduction allows monitoring for specific issues.
-
-### Option 3: Code Revert (Complete Rollback)
-
-If environment variable rollback is insufficient, revert the code changes.
+**Kubernetes**:
 
 ```bash
-# Identify the commit to revert to
-git log --oneline
+# Update ConfigMap
+kubectl patch configmap xze-keyword-config -n xze \
+  -p '{"data":{"KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE":"0"}}'
 
-# Revert to commit before Phase 3
+# Restart pods to pick up config
+kubectl rollout restart deployment/xze -n xze
+
+# Verify rollout
+kubectl rollout status deployment/xze -n xze
+```
+
+**Recovery Time**: 1-5 minutes
+
+## Staged Rollback
+
+### Gradual Reduction
+
+If you need to reduce LLM usage gradually:
+
+```bash
+# Current: 100% LLM
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=100
+
+# Step 1: Reduce to 50%
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=50
+# Monitor for 1 hour
+
+# Step 2: Reduce to 25%
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=25
+# Monitor for 1 hour
+
+# Step 3: Reduce to 10%
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=10
+# Monitor for 1 hour
+
+# Step 4: Disable completely
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
+```
+
+**Use Case**: Non-critical issues, gradual migration back to baseline
+
+## Configuration Rollback
+
+### Programmatic Configuration Change
+
+If configuration is managed in code:
+
+**Before** (with LLM):
+
+```rust
+let config = KeywordExtractorConfig {
+    rollout_percentage: 100,
+    ab_test_enabled: true,
+    metrics_enabled: true,
+    ..Default::default()
+};
+```
+
+**After** (rollback):
+
+```rust
+let config = KeywordExtractorConfig {
+    rollout_percentage: 0,
+    ab_test_enabled: false,
+    metrics_enabled: true, // Keep metrics for monitoring
+    ..Default::default()
+};
+```
+
+**Steps**:
+
+1. Update configuration file
+2. Rebuild application: `cargo build --release`
+3. Deploy updated binary
+4. Restart services
+5. Verify with metrics endpoint
+
+**Recovery Time**: 5-15 minutes
+
+## Code Rollback
+
+### Git Revert
+
+If the feature code is causing issues:
+
+**Steps**:
+
+```bash
+# Find the commit that introduced the feature
+git log --oneline --grep="keyword extraction"
+
+# Option 1: Revert specific commits
 git revert <commit-hash>
 
-# Or checkout the previous stable tag
-git checkout tags/v1.x.x
+# Option 2: Revert merge commit
+git revert -m 1 <merge-commit-hash>
 
 # Rebuild
 cargo build --release
@@ -80,269 +169,334 @@ cargo test --all-features
 make deploy
 ```
 
-**Recovery Time**: 5-15 minutes
+**Recovery Time**: 15-30 minutes
 
-**Impact**: Complete removal of LLM extraction feature.
+### Checkout Previous Tag
 
-## Rollback Scenarios
-
-### Scenario 1: High Error Rate
-
-**Symptoms**:
-- Error rate exceeds 5%
-- Logs show repeated LLM failures
-- Metrics show high failure count
-
-**Action**:
+Rollback to a known good version:
 
 ```bash
-# Immediate disable
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
-sudo systemctl restart xze-server
+# List recent tags
+git tag -l | tail -5
 
-# Check logs for root cause
-journalctl -u xze-server -n 100 | grep -i error
+# Checkout previous version
+git checkout tags/v0.4.0
 
-# Verify error rate drops
-curl http://localhost:8080/metrics | grep keyword_extraction_error_rate
+# Create a new branch from this tag
+git checkout -b rollback-keyword-extraction
+
+# Rebuild and test
+cargo build --release
+cargo test --all-features
+
+# Deploy
+make deploy
 ```
 
-### Scenario 2: Performance Degradation
-
-**Symptoms**:
-- Average extraction time exceeds 2 seconds
-- CPU usage increased by more than 50%
-- Memory usage growing unbounded
-
-**Action**:
-
-```bash
-# Reduce rollout to 10%
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=10
-sudo systemctl restart xze-server
-
-# Monitor for 15 minutes
-watch -n 10 'curl -s http://localhost:8080/metrics | grep keyword_extraction'
-
-# If still problematic, disable completely
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
-sudo systemctl restart xze-server
-```
-
-### Scenario 3: LLM Service Unavailable
-
-**Symptoms**:
-- Connection errors to Ollama
-- Timeout errors in logs
-- All LLM extractions failing
-
-**Action**:
-
-```bash
-# Disable LLM extraction (automatic fallback to frequency-based)
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
-
-# Or rely on automatic fallback if enabled
-# (fallback_on_error: true in config)
-
-# Restart service
-sudo systemctl restart xze-server
-
-# Fix Ollama service
-sudo systemctl restart ollama
-```
-
-### Scenario 4: Poor Quality Keywords
-
-**Symptoms**:
-- User reports of irrelevant keywords
-- Search quality degraded
-- Manual inspection shows hallucinated keywords
-
-**Action**:
-
-```bash
-# Stage 1: Reduce to 25% while investigating
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=25
-sudo systemctl restart xze-server
-
-# Stage 2: Disable if issue confirmed
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
-sudo systemctl restart xze-server
-
-# Investigate prompt engineering improvements
-# Review sampled outputs for quality issues
-```
+**Recovery Time**: 20-30 minutes
 
 ## Data Rollback
 
-### Reload Documents with Frequency-Based Keywords
+### Clear Keyword Cache
 
-If documents were loaded with LLM keywords and need to be regenerated:
+If cached keywords are problematic:
 
-```bash
-# Disable LLM extraction
-export XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
+```rust
+use xze_core::keyword_extractor::{KeywordExtractor, KeywordExtractorConfig};
 
-# Option 1: Reload specific documents
-xze load --force docs/specific_file.md
+#[tokio::main]
+async fn main() -> xze_core::Result<()> {
+    let config = KeywordExtractorConfig::default();
+    let extractor = KeywordExtractor::new(config)?;
 
-# Option 2: Reload entire documentation set
-xze load --force --recursive docs/
+    // Clear all cached keywords
+    extractor.clear_cache().await;
+    println!("Keyword cache cleared");
 
-# Option 3: Reload from database
-xze db reload-keywords --method frequency
+    Ok(())
+}
 ```
 
-**Warning**: This will overwrite existing keywords. Ensure you have backups if needed.
+**Effect**: Forces re-extraction for all future requests
 
-### Database Backup and Restore
+**Recovery Time**: Immediate
 
-Before major rollbacks, ensure you have a recent backup:
+### Reload Documents
+
+If persisted keywords need regeneration:
+
+**Steps**:
+
+1. Disable LLM extraction:
 
 ```bash
-# Create backup before rollback
-xze db backup --output /backup/keywords_$(date +%Y%m%d_%H%M%S).sql
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
+```
 
-# If rollback causes data issues, restore from backup
-xze db restore --input /backup/keywords_YYYYMMDD_HHMMSS.sql
+2. Clear existing keywords (if stored in database):
+
+```sql
+-- PostgreSQL example
+UPDATE documents SET keywords = NULL;
+-- Or delete and reload
+DELETE FROM documents;
+```
+
+3. Reload documents:
+
+```bash
+# Using XZe CLI
+cargo run --bin xze -- load --enhanced data/
+
+# Or programmatically
+cargo run --release --example reload_documents
+```
+
+**Recovery Time**: 1-24 hours (depends on corpus size)
+
+**Data Loss**: None (keywords are regenerated)
+
+## Rollback Decision Tree
+
+```text
+Is there an active incident?
+├─ YES (Critical)
+│  └─ Use Quick Rollback (Method 1 or 2)
+│     └─ Set ROLLOUT_PERCENTAGE=0
+└─ NO (Planned)
+   ├─ Is it a feature issue?
+   │  ├─ YES → Use Code Rollback
+   │  └─ NO → Continue
+   └─ Is it a data issue?
+      ├─ YES → Use Data Rollback
+      └─ NO → Use Staged Rollback
 ```
 
 ## Verification After Rollback
 
-### Check Service Health
+### Check Configuration
 
 ```bash
-# Verify service is running
-systemctl status xze-server
-
-# Check recent logs for errors
-journalctl -u xze-server -n 50 --no-pager
-
-# Test health endpoint
-curl http://localhost:8080/health
+# Verify environment variables
+echo "Rollout: $KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE"
+echo "A/B Test: $KEYWORD_EXTRACTION_AB_TEST"
+echo "Metrics: $KEYWORD_EXTRACTION_METRICS"
 ```
 
-### Verify Keyword Extraction Method
+### Check Metrics
+
+```rust
+// Verify no LLM extractions are happening
+let metrics = extractor.get_metrics().await;
+assert_eq!(metrics.llm_extractions, 0);
+assert!(metrics.frequency_extractions > 0);
+```
+
+### Check Logs
 
 ```bash
-# Load a test document
-xze load test_document.md
+# Check for extraction method
+grep "extraction method" /var/log/xze/app.log | tail -20
 
-# Check extraction method in logs
-journalctl -u xze-server | grep -i "extraction_method"
-
-# Expected: "extraction_method": "frequency"
+# Verify frequency method is used
+# Should see: extraction_method: "frequency"
 ```
 
-### Monitor Metrics
+### Test Extraction
 
-```bash
-# Check error rate (should be near 0%)
-curl -s http://localhost:8080/metrics | grep keyword_extraction_error_rate
-
-# Check extraction method distribution
-curl -s http://localhost:8080/metrics | grep keyword_extraction_method
-
-# Check processing time
-curl -s http://localhost:8080/metrics | grep keyword_extraction_duration
+```rust
+let keywords = extractor.extract("test content").await?;
+assert_eq!(keywords.extraction_method, "frequency");
 ```
 
-## Communication Template
+## Communication Templates
 
-When performing a rollback, communicate with stakeholders:
+### Internal Team Notification
 
 ```text
 Subject: LLM Keyword Extraction Rollback - [TIMESTAMP]
 
-Status: ROLLBACK INITIATED
+Team,
 
-Issue: [Describe the problem: high error rate/performance/quality]
+We are rolling back LLM keyword extraction due to [REASON].
 
-Action Taken:
-- Disabled LLM keyword extraction at [TIME]
-- Rolled back to frequency-based extraction
-- Service restarted at [TIME]
+Action: Set KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=0
+Status: In Progress / Complete
+Impact: Documents will use frequency-based extraction
+Duration: [EXPECTED DURATION]
+Next Steps: [INVESTIGATION PLAN]
 
-Current Status:
-- Service: HEALTHY
-- Error Rate: [X%]
-- Processing Time: [Y ms]
+Metrics before rollback:
+- LLM extraction rate: [X]%
+- Error rate: [Y]%
+- Avg extraction time: [Z]ms
 
-Impact:
-- New documents will use frequency-based keywords
-- Existing documents unchanged
-- No data loss
-
-Next Steps:
-- Root cause analysis in progress
-- Fix expected by [DATE/TIME]
-- Will communicate re-enablement plan
-
-Contact: [Your contact info]
+Contact [NAME] with questions.
 ```
+
+### Stakeholder Update
+
+```text
+Subject: Temporary Change to Keyword Extraction
+
+Hi [STAKEHOLDER],
+
+We've temporarily disabled the LLM-based keyword extraction feature
+due to [HIGH-LEVEL REASON].
+
+Impact: Minimal - keyword extraction continues using our proven
+frequency-based method.
+
+Timeline: We expect to re-enable the feature within [TIMEFRAME]
+after addressing [ISSUE].
+
+No action required on your part.
+
+Best regards,
+[NAME]
+```
+
+## Post-Rollback Actions
+
+### Immediate (< 1 hour)
+
+1. **Verify rollback success**:
+
+   - Check metrics show 0% LLM extraction
+   - Verify frequency extraction is working
+   - Confirm no error rate increase
+
+2. **Monitor system**:
+
+   - Watch error logs
+   - Check performance metrics
+   - Verify user reports
+
+3. **Document incident**:
+   - Record time of rollback
+   - Document reason
+   - Note who performed rollback
+
+### Short-term (1-24 hours)
+
+1. **Root cause analysis**:
+
+   - Investigate what caused the rollback
+   - Collect relevant logs and metrics
+   - Identify contributing factors
+
+2. **Create fix plan**:
+
+   - Document required changes
+   - Estimate fix timeline
+   - Plan testing approach
+
+3. **Communicate status**:
+   - Update team on findings
+   - Provide ETA for fix
+   - Set expectations for re-rollout
+
+### Long-term (1-7 days)
+
+1. **Implement fix**:
+
+   - Make necessary code changes
+   - Add tests for failure scenario
+   - Update documentation
+
+2. **Test thoroughly**:
+
+   - Run full test suite
+   - Perform integration tests
+   - Conduct manual verification
+
+3. **Plan re-rollout**:
+   - Schedule staged rollout
+   - Define monitoring plan
+   - Prepare rollback procedure (again)
 
 ## Preventing Future Rollbacks
 
-### Pre-Rollout Checklist
+### Monitoring
 
-Before enabling LLM extraction:
+Set up alerts before issues require rollback:
 
-- [ ] All tests passing
-- [ ] Benchmarks show acceptable performance
-- [ ] Manual quality review completed
-- [ ] Monitoring dashboards configured
-- [ ] Rollback procedure documented and tested
-- [ ] Team trained on rollback procedures
-- [ ] Stakeholders informed of rollout schedule
+```yaml
+# Example alert configuration
+alerts:
+  - name: HighKeywordExtractionErrors
+    condition: error_rate > 5%
+    action: Alert on-call engineer
 
-### Gradual Rollout Strategy
+  - name: SlowKeywordExtraction
+    condition: avg_time > 5000ms
+    action: Alert on-call engineer
+
+  - name: HighLLMFallbackRate
+    condition: fallback_rate > 20%
+    action: Reduce rollout percentage
+```
+
+### Gradual Rollout
 
 Always use staged rollout:
 
-1. Internal testing (0% - manual only)
-2. Canary (10%)
-3. Limited (25%)
-4. Majority (50%)
-5. Full (100%)
+```bash
+# Week 1: Canary
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=10
 
-Wait at each stage and verify:
-- Error rate < 1%
-- Processing time < 2 seconds
-- Quality metrics improved
-- No user complaints
+# Week 2: Limited
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=25
 
-### Automated Rollback Triggers
+# Week 3: A/B Test
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=50
 
-Consider implementing automatic rollback if:
-
-```yaml
-triggers:
-  - condition: error_rate > 5%
-    duration: 5 minutes
-    action: set_rollout_percentage(0)
-
-  - condition: avg_processing_time_ms > 3000
-    duration: 10 minutes
-    action: set_rollout_percentage(25)
-
-  - condition: cache_hit_rate < 20%
-    duration: 15 minutes
-    action: alert_team()
+# Week 4: Full rollout
+export KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE=100
 ```
 
-## References
+### Automated Rollback
 
-- Configuration Guide: `docs/reference/keyword_extraction_configuration.md`
-- Troubleshooting: `docs/how_to/troubleshoot_keyword_extraction.md`
-- Architecture: `docs/explanations/keyword_extraction_architecture.md`
-- Phase 3 Implementation: `docs/explanations/phase3_production_rollout_implementation.md`
+Implement circuit breaker pattern:
 
-## Support
+```rust
+// Future implementation example
+if error_rate > THRESHOLD {
+    warn!("Error rate {} exceeds threshold {}, disabling LLM extraction",
+          error_rate, THRESHOLD);
+    config.rollout_percentage = 0;
+}
+```
 
-If rollback procedures fail or issues persist:
+## Rollback Checklist
 
-1. Check logs: `journalctl -u xze-server -f`
-2. Review metrics: `curl http://localhost:8080/metrics`
-3. Contact team: [Team contact information]
-4. Create incident: [Incident tracking URL]
+Use this checklist for any rollback:
+
+- [ ] Identify rollback method (quick/staged/code/data)
+- [ ] Notify team of rollback intention
+- [ ] Execute rollback procedure
+- [ ] Verify rollback success (check metrics)
+- [ ] Monitor system for 1 hour post-rollback
+- [ ] Document rollback in incident log
+- [ ] Communicate status to stakeholders
+- [ ] Begin root cause analysis
+- [ ] Create fix plan with timeline
+- [ ] Schedule re-rollout when ready
+
+## Emergency Contacts
+
+Maintain a list of who can execute rollbacks:
+
+```text
+Primary: [NAME] - [PHONE] - [EMAIL]
+Secondary: [NAME] - [PHONE] - [EMAIL]
+Manager: [NAME] - [PHONE] - [EMAIL]
+On-call: [ROTATION] - [PAGER]
+```
+
+## See Also
+
+- [Configuration Reference](../reference/keyword_extraction_configuration.md)
+- [How to Configure LLM Keyword Extraction](configure_llm_keyword_extraction.md)
+- [Troubleshooting Guide](troubleshoot_keyword_extraction.md)
+- [Incident Response Playbook](../operations/incident_response.md) (if exists)
