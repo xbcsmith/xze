@@ -4,6 +4,7 @@
 //! This library provides the main components for analyzing repositories,
 //! generating documentation, and managing the documentation workflow.
 
+pub mod ab_testing;
 pub mod ai;
 pub mod change_detector;
 pub mod config;
@@ -21,6 +22,7 @@ pub mod types;
 pub mod watcher;
 
 // Re-export commonly used types
+pub use ab_testing::{ABTest, ABTestStats, ExtractionMethod};
 pub use change_detector::{
     ChangeDetector, ChangeDetectorConfig, ChangeSignificance, DocumentationImpact,
     RepositoryChanges, SignificanceLevel, WebhookEvent,
