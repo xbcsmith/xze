@@ -72,6 +72,9 @@ sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "m
 # Hash maps with better performance
 indexmap = "2.1"
 
+# Efficient synchronization primitives
+parking_lot = "0.12"
+
 # Language detection
 tree-sitter = "0.20"
 tree-sitter-rust = "0.20"
