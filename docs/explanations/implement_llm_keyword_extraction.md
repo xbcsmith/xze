@@ -1239,7 +1239,9 @@ required
 
 **Integration Test Structure**:
 
-````xze/crates/core/tests/integration_keyword_extraction.rs#L1-200
+xze/crates/core/tests/integration_keyword_extraction.rs#L1-200
+
+````rust
 use xze_core::config::Config;
 use xze_core::document_loader::DocumentMetadata;
 use xze_core::keyword_extractor::{ExtractionMethod, KeywordExtractor};
@@ -1267,7 +1269,7 @@ Install Snyk CLI:
 
 ```bash
 npm install -g snyk
-````
+```
 
 ## Running Scans
 

@@ -4,15 +4,21 @@
 //! This library provides the main components for analyzing repositories,
 //! generating documentation, and managing the documentation workflow.
 
+pub mod ab_testing;
 pub mod ai;
 pub mod change_detector;
 pub mod config;
+pub mod document_enrichment;
 pub mod documentation;
 pub mod error;
 pub mod git;
 pub mod kb;
 pub mod keyword_extractor;
+pub mod monitoring;
+pub mod performance_profiler;
 pub mod pipeline;
+pub mod prompt_templates;
+pub mod quality_validator;
 pub mod repository;
 pub mod search;
 pub mod semantic;
@@ -20,17 +26,28 @@ pub mod types;
 pub mod watcher;
 
 // Re-export commonly used types
+pub use ab_testing::{ABTest, ABTestResults, ExtractionGroup};
 pub use change_detector::{
     ChangeDetector, ChangeDetectorConfig, ChangeSignificance, DocumentationImpact,
     RepositoryChanges, SignificanceLevel, WebhookEvent,
 };
 pub use config::XzeConfig;
+pub use document_enrichment::{DocumentEnricher, EnrichmentConfig, EnrichmentStats};
 pub use error::{Result, XzeError};
 pub use kb::{
     calculate_content_hash, calculate_file_hash, CategorizedFiles, FileCategorizer, FileCategory,
     IncrementalLoader, KbError, KbStore, LoadStats, LoaderConfig,
 };
 pub use keyword_extractor::{ExtractedKeywords, KeywordExtractor, KeywordExtractorConfig};
+pub use monitoring::{Alert, AlertLevel, MetricsCollector, MetricsSnapshot};
+pub use performance_profiler::{
+    BatchOptimizationConfig, PerformanceProfiler, PerformanceReport, ProfileScope,
+};
+pub use prompt_templates::{PromptPerformanceTracker, PromptTemplate, PromptVariant};
+pub use quality_validator::{
+    KeywordFeedback, QualityGrade, QualityScore, QualityValidator, ValidationCriteria,
+    ValidationReport,
+};
 pub use repository::{CodeStructure, Repository, RepositoryManager};
 pub use search::EmbeddingCache;
 pub use semantic::{ChunkMetadata, SemanticChunk, SentenceSplitter};
