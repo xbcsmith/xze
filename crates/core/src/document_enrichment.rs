@@ -83,6 +83,15 @@ pub struct EnrichmentConfig {
 
     /// Batch size for processing multiple chunks
     pub batch_size: usize,
+
+    /// Rollout percentage (0-100) for gradual LLM adoption
+    pub rollout_percentage: u8,
+
+    /// Whether to enable A/B testing mode
+    pub ab_test_enabled: bool,
+
+    /// Whether to collect and expose metrics
+    pub metrics_enabled: bool,
 }
 
 impl Default for EnrichmentConfig {
@@ -95,7 +104,76 @@ impl Default for EnrichmentConfig {
             extractor_config: KeywordExtractorConfig::default(),
             batch_workers: 4,
             batch_size: 10,
+            rollout_percentage: Self::default_rollout_percentage(),
+            ab_test_enabled: Self::default_ab_test_enabled(),
+            metrics_enabled: Self::default_metrics_enabled(),
         }
+    }
+}
+
+impl EnrichmentConfig {
+    /// Gets rollout percentage from environment or defaults to 0
+    fn default_rollout_percentage() -> u8 {
+        std::env::var("XZE_KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0)
+    }
+
+    /// Gets A/B test flag from environment or defaults to false
+    fn default_ab_test_enabled() -> bool {
+        std::env::var("XZE_KEYWORD_EXTRACTION_AB_TEST")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(false)
+    }
+
+    /// Gets metrics flag from environment or defaults to true
+    fn default_metrics_enabled() -> bool {
+        std::env::var("XZE_KEYWORD_EXTRACTION_METRICS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(true)
+    }
+
+    /// Determines if LLM extraction should be used for this invocation
+    ///
+    /// Takes into account the rollout percentage using deterministic selection.
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - A seed value for deterministic selection (e.g., document hash)
+    ///
+    /// # Returns
+    ///
+    /// Returns true if LLM extraction should be used, false otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::document_enrichment::EnrichmentConfig;
+    ///
+    /// let mut config = EnrichmentConfig::default();
+    /// config.rollout_percentage = 50;
+    ///
+    /// // Deterministic selection based on seed
+    /// let use_llm = config.should_use_llm_extraction(12345);
+    /// ```
+    pub fn should_use_llm_extraction(&self, seed: u64) -> bool {
+        if !self.use_llm_keywords {
+            return false;
+        }
+
+        if self.rollout_percentage >= 100 {
+            return true;
+        }
+
+        if self.rollout_percentage == 0 {
+            return false;
+        }
+
+        // Deterministic selection based on seed
+        (seed % 100) < self.rollout_percentage as u64
     }
 }
 
@@ -187,7 +265,7 @@ pub struct EnrichmentStats {
     /// Chunks enriched from cache
     pub cached_enriched: usize,
 
-    /// Enrichment failures
+    /// Number of enrichment failures
     pub failures: usize,
 
     /// Average keywords per chunk
@@ -195,6 +273,15 @@ pub struct EnrichmentStats {
 
     /// Total processing time in milliseconds
     pub total_processing_ms: u64,
+
+    /// Cache hits (for metrics)
+    pub cache_hits: usize,
+
+    /// Cache misses (for metrics)
+    pub cache_misses: usize,
+
+    /// Total errors encountered
+    pub error_count: usize,
 }
 
 impl EnrichmentStats {
@@ -204,27 +291,140 @@ impl EnrichmentStats {
         self.total_processing_ms += processing_ms;
 
         match keywords.extraction_method.as_str() {
-            "llm" => self.llm_enriched += 1,
-            "frequency" => self.frequency_enriched += 1,
-            "cached" => self.cached_enriched += 1,
+            "llm" => {
+                self.llm_enriched += 1;
+                self.cache_misses += 1;
+            }
+            "frequency" => {
+                self.frequency_enriched += 1;
+                self.cache_misses += 1;
+            }
+            "cached" => {
+                self.cached_enriched += 1;
+                self.cache_hits += 1;
+            }
             _ => {}
         }
 
-        let total_keywords = keywords.total_count();
-        let new_avg = ((self.avg_keywords_per_chunk * (self.total_enriched - 1) as f64)
+        let total_keywords = keywords.descriptive.len() + keywords.technical.len();
+        let new_avg = (self.avg_keywords_per_chunk * (self.total_enriched - 1) as f64
             + total_keywords as f64)
             / self.total_enriched as f64;
         self.avg_keywords_per_chunk = new_avg;
     }
 
-    /// Records a failure
+    /// Records a failed enrichment
     fn record_failure(&mut self) {
         self.failures += 1;
+        self.error_count += 1;
     }
 
     /// Resets all statistics
     pub fn reset(&mut self) {
         *self = Self::default();
+    }
+
+    /// Calculate cache hit rate as percentage
+    ///
+    /// # Returns
+    ///
+    /// Returns cache hit rate as percentage (0.0-100.0)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::document_enrichment::EnrichmentStats;
+    ///
+    /// let mut stats = EnrichmentStats::default();
+    /// assert_eq!(stats.cache_hit_rate(), 0.0);
+    /// ```
+    pub fn cache_hit_rate(&self) -> f64 {
+        let total = self.cache_hits + self.cache_misses;
+        if total > 0 {
+            (self.cache_hits as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Calculate average extraction time in milliseconds
+    ///
+    /// # Returns
+    ///
+    /// Returns average extraction time in ms
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::document_enrichment::EnrichmentStats;
+    ///
+    /// let mut stats = EnrichmentStats::default();
+    /// assert_eq!(stats.avg_extraction_time_ms(), 0.0);
+    /// ```
+    pub fn avg_extraction_time_ms(&self) -> f64 {
+        if self.total_enriched > 0 {
+            self.total_processing_ms as f64 / self.total_enriched as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// Calculate error rate as percentage
+    ///
+    /// # Returns
+    ///
+    /// Returns error rate as percentage (0.0-100.0)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::document_enrichment::EnrichmentStats;
+    ///
+    /// let mut stats = EnrichmentStats::default();
+    /// assert_eq!(stats.error_rate(), 0.0);
+    /// ```
+    pub fn error_rate(&self) -> f64 {
+        let total_attempts = self.total_enriched + self.error_count;
+        if total_attempts > 0 {
+            (self.error_count as f64 / total_attempts as f64) * 100.0
+        } else {
+            0.0
+        }
+    }
+
+    /// Convert metrics to JSON-serializable format
+    ///
+    /// # Returns
+    ///
+    /// Returns JSON representation of metrics
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use xze_core::document_enrichment::EnrichmentStats;
+    ///
+    /// let stats = EnrichmentStats::default();
+    /// let json = stats.to_json();
+    /// assert!(json.is_object());
+    /// ```
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "total_enriched": self.total_enriched,
+            "method_breakdown": {
+                "llm": self.llm_enriched,
+                "frequency": self.frequency_enriched,
+                "cached": self.cached_enriched,
+            },
+            "cache_hit_rate": format!("{:.1}%", self.cache_hit_rate()),
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "error_count": self.error_count,
+            "error_rate": format!("{:.2}%", self.error_rate()),
+            "failures": self.failures,
+            "avg_keywords_per_chunk": format!("{:.1}", self.avg_keywords_per_chunk),
+            "avg_extraction_time_ms": format!("{:.1}", self.avg_extraction_time_ms()),
+            "total_processing_ms": self.total_processing_ms,
+        })
     }
 }
 
@@ -637,11 +837,17 @@ mod tests {
             failures: 1,
             avg_keywords_per_chunk: 12.5,
             total_processing_ms: 5000,
+            cache_hits: 3,
+            cache_misses: 7,
+            error_count: 2,
         };
 
         stats.reset();
         assert_eq!(stats.total_enriched, 0);
         assert_eq!(stats.failures, 0);
+        assert_eq!(stats.cache_hits, 0);
+        assert_eq!(stats.cache_misses, 0);
+        assert_eq!(stats.error_count, 0);
     }
 
     #[tokio::test]
