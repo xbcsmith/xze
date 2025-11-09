@@ -525,6 +525,6 @@ Adjust timeout constants if needed for your use case.
 
 ## References
 
-- Implementation: `docs/explanations/phase_11_real_time_search_implementation.md`
-- Search Plan: `docs/explanations/search_features_unified_implementation_plan.md`
+- Implementation: `docs/explanation/phase_11_real_time_search_implementation.md`
+- Search Plan: `docs/explanation/search_features_unified_implementation_plan.md`
 - API Documentation: Run `cargo doc --open`

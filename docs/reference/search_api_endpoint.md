@@ -12,12 +12,12 @@ GET /search
 
 ## Query Parameters
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `q` | string | Yes | - | The search query string. Must not be empty. |
-| `max_results` | integer | No | `10` | Maximum number of results to return. Must be greater than 0. |
-| `min_similarity` | float | No | `0.0` | Minimum similarity threshold (0.0 to 1.0). Results below this threshold are filtered out. |
-| `category` | string | No | - | Filter results by Diátaxis category: `tutorial`, `how_to`, `reference`, or `explanation`. |
+| Parameter        | Type    | Required | Default | Description                                                                               |
+| ---------------- | ------- | -------- | ------- | ----------------------------------------------------------------------------------------- |
+| `q`              | string  | Yes      | -       | The search query string. Must not be empty.                                               |
+| `max_results`    | integer | No       | `10`    | Maximum number of results to return. Must be greater than 0.                              |
+| `min_similarity` | float   | No       | `0.0`   | Minimum similarity threshold (0.0 to 1.0). Results below this threshold are filtered out. |
+| `category`       | string  | No       | -       | Filter results by Diátaxis category: `tutorial`, `how_to`, `reference`, or `explanation`. |
 
 ## Request Examples
 
@@ -213,32 +213,32 @@ tutorials = search_docs(
 ### JavaScript/Node.js
 
 ```javascript
-const axios = require('axios');
+const axios = require("axios");
 
 async function searchDocs(query, options = {}) {
-    const params = {
-        q: query,
-        max_results: options.maxResults || 10,
-        min_similarity: options.minSimilarity || 0.0,
-        ...(options.category && { category: options.category })
-    };
+  const params = {
+    q: query,
+    max_results: options.maxResults || 10,
+    min_similarity: options.minSimilarity || 0.0,
+    ...(options.category && { category: options.category }),
+  };
 
-    const response = await axios.get('http://localhost:3000/search', { params });
-    return response.data;
+  const response = await axios.get("http://localhost:3000/search", { params });
+  return response.data;
 }
 
 // Basic search
 const results = await searchDocs("API endpoints");
-results.results.forEach(result => {
-    console.log(`[${result.similarity.toFixed(2)}] ${result.source_file}`);
-    console.log(`  ${result.content.substring(0, 100)}...`);
+results.results.forEach((result) => {
+  console.log(`[${result.similarity.toFixed(2)}] ${result.source_file}`);
+  console.log(`  ${result.content.substring(0, 100)}...`);
 });
 
 // High-precision search
 const precise = await searchDocs("deployment strategies", {
-    maxResults: 3,
-    minSimilarity: 0.7,
-    category: "how_to"
+  maxResults: 3,
+  minSimilarity: 0.7,
+  category: "how_to",
 });
 ```
 
@@ -263,12 +263,14 @@ curl -s "http://localhost:3000/search?q=examples&category=tutorial" | \
 ### Query Response Time
 
 Typical response times depend on:
+
 - Database size: More chunks = longer search time
 - Embedding generation: ~100-500ms for query embedding
 - Similarity calculation: O(n) where n = number of chunks
 - Network latency to Ollama service
 
 Expected performance:
+
 - Small corpus (< 1,000 chunks): 200-500ms
 - Medium corpus (1,000-10,000 chunks): 500ms-2s
 - Large corpus (> 10,000 chunks): 2-5s
@@ -332,4 +334,4 @@ except requests.exceptions.ConnectionError:
 - [Search Command Reference](./search_command_reference.md) - CLI search interface
 - [Semantic Chunking API](./semantic_chunking_api.md) - Underlying chunking system
 - [Server Configuration](../how_to/server_configuration.md) - Server setup guide
-- [Phase 6 Implementation](../explanations/phase_6_search_integration_implementation.md) - Technical details
+- [Phase 6 Implementation](../explanation/phase_6_search_integration_implementation.md) - Technical details

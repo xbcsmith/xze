@@ -224,7 +224,7 @@ Services communicate through message queues for loose coupling.
     let mut chunks = vec![
         create_test_chunk(0, tutorial_content, "docs/tutorials/getting_started.md"),
         create_test_chunk(1, reference_content, "docs/reference/api.md"),
-        create_test_chunk(2, explanation_content, "docs/explanations/architecture.md"),
+        create_test_chunk(2, explanation_content, "docs/explanation/architecture.md"),
     ];
 
     let methods = enricher.enrich_chunks(&mut chunks).await.unwrap();

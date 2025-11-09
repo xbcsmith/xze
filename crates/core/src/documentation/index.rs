@@ -243,12 +243,12 @@ impl IndexGenerator {
     }
 
     /// Get category directory name
-    fn get_category_dir(&self, category: &DiátaxisCategory) -> &str {
+    fn get_category_dir(&self, category: &DiátaxisCategory) -> &'static str {
         match category {
             DiátaxisCategory::Tutorial => "tutorials",
             DiátaxisCategory::HowTo => "how_to",
             DiátaxisCategory::Reference => "reference",
-            DiátaxisCategory::Explanation => "explanations",
+            DiátaxisCategory::Explanation => "explanation",
         }
     }
 
@@ -304,17 +304,17 @@ impl IndexGenerator {
             DiátaxisCategory::Tutorial => {
                 links.push_str("- [How-To Guides](../how_to/) - Apply what you learned\n");
                 links.push_str("- [Reference](../reference/) - Look up API details\n");
-                links.push_str("- [Explanations](../explanations/) - Understand concepts\n");
+                links.push_str("- [Explanation](../explanation/) - Understand concepts\n");
             }
             DiátaxisCategory::HowTo => {
                 links.push_str("- [Tutorials](../tutorials/) - Learn the basics\n");
                 links.push_str("- [Reference](../reference/) - Technical specifications\n");
-                links.push_str("- [Explanations](../explanations/) - Background information\n");
+                links.push_str("- [Explanation](../explanation/) - Background information\n");
             }
             DiátaxisCategory::Reference => {
                 links.push_str("- [Tutorials](../tutorials/) - Learn by doing\n");
                 links.push_str("- [How-To Guides](../how_to/) - Practical tasks\n");
-                links.push_str("- [Explanations](../explanations/) - Deep dive\n");
+                links.push_str("- [Explanation](../explanation/) - Deep dive\n");
             }
             DiátaxisCategory::Explanation => {
                 links.push_str("- [Tutorials](../tutorials/) - Hands-on learning\n");
@@ -423,7 +423,7 @@ More content.
         );
         assert_eq!(
             generator.get_category_dir(&DiátaxisCategory::Explanation),
-            "explanations"
+            "explanation"
         );
     }
 }

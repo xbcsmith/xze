@@ -53,7 +53,7 @@ Extract keywords from documentation using LLM:
 
 ```bash
 cargo run --example prototype_llm_extractor -- \
-    --input docs/explanations/ \
+    --input docs/explanation/ \
     --output llm_keywords.json \
     --model llama3.2:3b
 ```
@@ -63,7 +63,7 @@ cargo run --example prototype_llm_extractor -- \
 ```
 INFO  LLM Keyword Extraction Prototype
 INFO  ================================
-INFO  Input directory: "docs/explanations/"
+INFO  Input directory: "docs/explanation/"
 INFO  Output file: "llm_keywords.json"
 INFO  Model: llama3.2:3b
 INFO
@@ -319,8 +319,8 @@ cargo run --example measure_search_quality -- \
 
 ## Documentation References
 
-- Implementation plan: `docs/explanations/implement_llm_keyword_extraction.md`
-- Phase 0 summary: `docs/explanations/phase0_llm_keyword_extraction_implementation.md`
+- Implementation plan: `docs/explanation/implement_llm_keyword_extraction.md`
+- Phase 0 summary: `docs/explanation/phase0_llm_keyword_extraction_implementation.md`
 - Project guidelines: `AGENTS.md`
 - Test queries: `test_queries.json`
 

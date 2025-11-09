@@ -395,8 +395,8 @@ cargo test --package xze-serve --test '*' --all-features
 
 ## References
 
-- **Implementation Details**: `docs/explanations/phase7_5_3_api_versioning_tests_implementation.md`
-- **Test Summary**: `docs/explanations/phase7_5_3_summary.md`
+- **Implementation Details**: `docs/explanation/phase7_5_3_api_versioning_tests_implementation.md`
+- **Test Summary**: `docs/explanation/phase7_5_3_summary.md`
 - **API Documentation**: `docs/reference/openapi_v1.json`
 - **Migration Guide**: `docs/how_to/migrate_to_api_v1.md`
 

@@ -582,9 +582,9 @@ export VALIDATION_MIN_IMPROVEMENT_PCT=15.0
 
 ## References
 
-- Phase 4 Implementation: `docs/explanations/phase_4_optimization_monitoring_implementation.md`
+- Phase 4 Implementation: `docs/explanation/phase_4_optimization_monitoring_implementation.md`
 - Configuration Guide: `docs/how_to/configure_llm_keyword_extraction.md`
-- Architecture Overview: `docs/explanations/implement_llm_keyword_extraction.md`
+- Architecture Overview: `docs/explanation/implement_llm_keyword_extraction.md`
 - API Documentation: Generated via `cargo doc --open`
 
 ---

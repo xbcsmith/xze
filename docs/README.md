@@ -9,7 +9,7 @@ docs/
 ├── README.md                    # This file
 ├── tutorials/                   # Learning-oriented guides
 ├── how_to/                      # Problem-solving guides
-├── explanations/                # Understanding-oriented discussion
+├── explanation/                 # Understanding-oriented discussion
 └── reference/                   # Information-oriented specifications
 ```
 
@@ -20,6 +20,7 @@ docs/
 Start with **[Tutorials](tutorials/)** - Step-by-step lessons that teach you how to use XZe through hands-on practice.
 
 Coming soon:
+
 - Getting Started with XZe
 - Your First Documentation Generation
 - Setting Up Auto-Mode
@@ -29,6 +30,7 @@ Coming soon:
 Check **[How-To Guides](how_to/)** - Task-oriented instructions for accomplishing specific goals.
 
 Coming soon:
+
 - How to Install XZe
 - How to Configure Multiple Repositories
 - How to Deploy XZe in Production
@@ -36,14 +38,16 @@ Coming soon:
 
 ### I want to understand the system
 
-Read **[Explanations](explanations/)** - Conceptual discussion that clarifies and illuminates topics.
+Read **[Explanation](explanation/)** - Conceptual discussion that clarifies and illuminates topics.
 
 Available now:
-- [Project Status Summary](explanations/project_status_summary.md) - Current state and progress
-- [Implementation Roadmap](explanations/implementation_roadmap.md) - Detailed phased development plan
-- [Phase Overview](explanations/phase_overview.md) - Visual timeline and milestones
+
+- [Project Status Summary](explanation/project_status_summary.md) - Current state and progress
+- [Implementation Roadmap](explanation/implementation_roadmap.md) - Detailed phased development plan
+- [Phase Overview](explanation/phase_overview.md) - Visual timeline and milestones
 
 Coming soon:
+
 - Architecture Overview
 - Design Decisions
 - Diátaxis Framework Application
@@ -54,6 +58,7 @@ Coming soon:
 See **[Reference](reference/)** - Technical specifications and API documentation.
 
 Coming soon:
+
 - CLI Command Reference
 - Configuration Schema
 - API Reference
@@ -67,7 +72,7 @@ XZe is a tool written in Rust that uses open source models from Ollama to analyz
 
 - **Multi-language Support**: Analyze Rust, Go, Python, JavaScript, Java, and more
 - **AI-Powered**: Leverages Ollama and LLMs for intelligent documentation generation
-- **Diátaxis Framework**: Organizes documentation into tutorials, how-tos, explanations, and reference
+- **Diátaxis Framework**: Organizes documentation into tutorials, how-tos, explanation, and reference
 - **Git Integration**: Automatically creates pull requests with generated documentation
 - **Multiple Modes**: CLI, server, and VSCode extension
 - **Auto-Mode**: Monitors repositories and updates documentation automatically
@@ -76,7 +81,7 @@ XZe is a tool written in Rust that uses open source models from Ollama to analyz
 
 **Current Status**: Foundation complete, core implementation in progress (40-50% complete)
 
-See [Project Status Summary](explanations/project_status_summary.md) for detailed current state.
+See [Project Status Summary](explanation/project_status_summary.md) for detailed current state.
 
 ## Contributing
 
@@ -103,7 +108,7 @@ This documentation follows the Diátaxis framework, which recognizes that docume
 - Focus on achieving a specific outcome
 - Are recipes for accomplishing tasks
 
-### Explanations (Understanding-oriented)
+### Explanation (Understanding-oriented)
 
 - Clarify and illuminate a particular topic
 - Provide background and context

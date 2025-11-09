@@ -299,11 +299,11 @@ let config = KeywordExtractorConfig {
 
 ### Quick Reference
 
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE` | u8 | `0` | Rollout percentage (0-100) |
-| `KEYWORD_EXTRACTION_AB_TEST` | bool | `false` | Enable A/B testing |
-| `KEYWORD_EXTRACTION_METRICS` | bool | `true` | Enable metrics collection |
+| Variable                                | Type | Default | Description                |
+| --------------------------------------- | ---- | ------- | -------------------------- |
+| `KEYWORD_EXTRACTION_ROLLOUT_PERCENTAGE` | u8   | `0`     | Rollout percentage (0-100) |
+| `KEYWORD_EXTRACTION_AB_TEST`            | bool | `false` | Enable A/B testing         |
+| `KEYWORD_EXTRACTION_METRICS`            | bool | `true`  | Enable metrics collection  |
 
 ### Setting Environment Variables
 
@@ -471,4 +471,4 @@ Enable:
 
 - [How to Configure LLM Keyword Extraction](../how_to/configure_llm_keyword_extraction.md)
 - [Troubleshooting Guide](../how_to/troubleshoot_keyword_extraction.md)
-- [Keyword Extraction Architecture](../explanations/keyword_extraction_architecture.md)
+- [Keyword Extraction Architecture](../explanation/keyword_extraction_architecture.md)

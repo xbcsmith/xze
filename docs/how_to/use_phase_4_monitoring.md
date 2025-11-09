@@ -694,7 +694,7 @@ export KEYWORD_EXTRACTION_PROMPT_VARIANT=concise
 ## References
 
 - Configuration Reference: `docs/reference/phase_4_monitoring_configuration.md`
-- Implementation Details: `docs/explanations/phase_4_optimization_monitoring_implementation.md`
+- Implementation Details: `docs/explanation/phase_4_optimization_monitoring_implementation.md`
 - API Documentation: Run `cargo doc --open`
 
 ## Support

@@ -455,7 +455,7 @@ impl AIDocumentationGenerator {
             DiátaxisCategory::Tutorial => "tutorials",
             DiátaxisCategory::HowTo => "how_to",
             DiátaxisCategory::Reference => "reference",
-            DiátaxisCategory::Explanation => "explanations",
+            DiátaxisCategory::Explanation => "explanation",
         };
 
         let filename = format!(
@@ -741,7 +741,7 @@ impl DocumentWriter {
             DiátaxisCategory::Tutorial => "tutorials",
             DiátaxisCategory::HowTo => "how_to",
             DiátaxisCategory::Reference => "reference",
-            DiátaxisCategory::Explanation => "explanations",
+            DiátaxisCategory::Explanation => "explanation",
         };
 
         let index_path = self.config.output_dir.join(category_dir).join("README.md");

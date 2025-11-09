@@ -275,8 +275,8 @@ Current test coverage:
 ## Documentation
 
 - Full API documentation: `cargo doc --open`
-- Implementation guide: `docs/explanations/phase_12_search_analytics_implementation.md`
-- Summary: `docs/explanations/phase_12_summary.md`
+- Implementation guide: `docs/explanation/phase_12_search_analytics_implementation.md`
+- Summary: `docs/explanation/phase_12_summary.md`
 
 ## Future Enhancements
 

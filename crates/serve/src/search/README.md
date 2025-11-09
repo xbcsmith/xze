@@ -204,8 +204,8 @@ cargo test --all-features -p xze-serve --test search_integration_tests
 ## Documentation
 
 For detailed implementation documentation, see:
-- `docs/explanations/phase_7_6_hybrid_search_api_implementation.md`
-- `docs/explanations/search_features_unified_implementation_plan.md`
+- `docs/explanation/phase_7_6_hybrid_search_api_implementation.md`
+- `docs/explanation/search_features_unified_implementation_plan.md`
 
 ## Next Steps
 

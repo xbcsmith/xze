@@ -324,7 +324,7 @@ cargo run -- search "test query" --show-chunks
 **Documents to Create**:
 
 ```bash
-touch docs/explanations/semantic_chunking_architecture.md
+touch docs/explanation/semantic_chunking_architecture.md
 touch docs/how_to/configure_semantic_chunking.md
 touch docs/reference/semantic_chunking_api.md
 touch docs/tutorials/semantic_chunking_quick_start.md
@@ -552,10 +552,10 @@ After completing implementation:
 
 ## Resources
 
-- Full implementation plan: `docs/explanations/semantic_chunking_implementation_plan.md`
-- Implementation summary: `docs/explanations/semantic_chunking_implementation_summary.md`
+- Full implementation plan: `docs/explanation/semantic_chunking_implementation_plan.md`
+- Implementation summary: `docs/explanation/semantic_chunking_implementation_summary.md`
 - Agent guidelines: `AGENTS.md`
-- XZe architecture: `docs/explanations/architecture.md`
+- XZe architecture: `docs/explanation/architecture.md`
 
 ## Getting Help
 

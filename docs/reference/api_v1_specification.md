@@ -533,4 +533,4 @@ See: `docs/how_to/migrate_to_api_v1.md` for migration guide.
 
 - GitHub Issues: Report bugs or request features
 - Documentation: `docs/` directory
-- Implementation Details: `docs/explanations/phase7_5_api_versioning_implementation.md`
+- Implementation Details: `docs/explanation/phase7_5_api_versioning_implementation.md`
