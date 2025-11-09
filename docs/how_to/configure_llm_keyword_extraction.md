@@ -243,7 +243,7 @@ let quality_extractor = KeywordExtractor::new(quality_config)?;
 ### Docker Compose
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   ollama:
@@ -314,14 +314,14 @@ spec:
         app: xze
     spec:
       containers:
-      - name: xze
-        image: xze:latest
-        envFrom:
-        - configMapRef:
-            name: xze-keyword-config
-        env:
-        - name: OLLAMA_URL
-          value: "http://ollama-service:11434"
+        - name: xze
+          image: xze:latest
+          envFrom:
+            - configMapRef:
+                name: xze-keyword-config
+          env:
+            - name: OLLAMA_URL
+              value: "http://ollama-service:11434"
 ```
 
 ## Monitoring Configuration
@@ -489,7 +489,7 @@ ollama run llama3.2:3b "test"
 - Read [Troubleshooting Guide](troubleshoot_keyword_extraction.md)
 - Review [Configuration Reference](../reference/keyword_extraction_configuration.md)
 - Learn about [Rollback Procedures](rollback_llm_keyword_extraction.md)
-- Understand [Architecture](../explanations/keyword_extraction_architecture.md)
+- Understand [Architecture](../explanation/keyword_extraction_architecture.md)
 
 ## See Also
 

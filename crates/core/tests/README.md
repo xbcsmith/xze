@@ -282,5 +282,5 @@ When adding new integration tests:
 ## References
 
 - User guide: `docs/how_to/incremental_loading_guide.md`
-- Architecture: `docs/explanations/incremental_loading_architecture.md`
-- Implementation: `docs/explanations/phase7_testing_documentation_implementation.md`
+- Architecture: `docs/explanation/incremental_loading_architecture.md`
+- Implementation: `docs/explanation/phase7_testing_documentation_implementation.md`

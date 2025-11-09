@@ -516,4 +516,4 @@ Create tasks for Phase 4 optimizations.
 - Configuration Guide: `docs/reference/keyword_extraction_configuration.md`
 - Rollback Procedures: `docs/how_to/rollback_llm_keyword_extraction.md`
 - Troubleshooting: `docs/how_to/troubleshoot_keyword_extraction.md`
-- Phase 3 Implementation: `docs/explanations/phase3_production_rollout_implementation.md`
+- Phase 3 Implementation: `docs/explanation/phase3_production_rollout_implementation.md`

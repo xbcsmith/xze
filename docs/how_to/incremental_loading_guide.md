@@ -314,6 +314,6 @@ jobs:
 
 For more information:
 
-- Architecture details: See `docs/explanations/incremental_loading_architecture.md`
-- Implementation details: See `docs/explanations/phase*_implementation.md`
+- Architecture details: See `docs/explanation/incremental_loading_architecture.md`
+- Implementation details: See `docs/explanation/phase*_implementation.md`
 - Report issues: GitHub repository issue tracker

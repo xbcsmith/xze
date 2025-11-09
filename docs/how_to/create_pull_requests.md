@@ -168,6 +168,7 @@ let pr = manager.create_pr(repo_url, request).await?;
 ### github
 
 **Token Requirements**:
+
 - Scope: `repo` (full control of private repositories)
 - Scope: `write:discussion` (for comments)
 
@@ -197,6 +198,7 @@ let pr = manager.create_pr(
 ### gitlab
 
 **Token Requirements**:
+
 - Scope: `api` (access the authenticated user's API)
 - Scope: `write_repository` (write access to repository)
 
@@ -413,6 +415,7 @@ async fn automated_pr_workflow(
 **Problem**: "401 Unauthorized" error
 
 **Solution**:
+
 1. Verify token is set correctly
 2. Check token has not expired
 3. Ensure token has required scopes
@@ -427,6 +430,7 @@ curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
 **Problem**: "403 Forbidden" error
 
 **Solution**:
+
 1. Verify you have write access to the repository
 2. Check token scopes include repository access
 3. Ensure you're not hitting rate limits
@@ -436,6 +440,7 @@ curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user
 **Problem**: "Branch not found" error
 
 **Solution**:
+
 1. Ensure branch exists on remote
 2. Push branch before creating PR
 3. Verify branch name is correct
@@ -450,6 +455,7 @@ git push origin feature-branch
 **Problem**: "429 Too Many Requests" error
 
 **Solution**:
+
 1. Wait for rate limit to reset
 2. Implement retry logic with backoff
 3. Cache data to reduce API calls
@@ -491,7 +497,7 @@ async fn create_pr_with_retry(
 
 ## next steps
 
-- Read the [PR Management Guide](../explanations/pr_management.md)
+- Read the [PR Management Guide](../explanation/pr_management.md)
 - Check the [API Reference](../reference/pr_api.md)
 - Explore template customization options
 - Integrate with CI/CD pipelines

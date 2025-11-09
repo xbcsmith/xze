@@ -327,6 +327,6 @@ Consider:
 
 ## See Also
 
-- Search Implementation: `docs/explanations/phase_6_search_integration_implementation.md`
-- Semantic Chunking: `docs/explanations/semantic_chunking_implementation_plan.md`
+- Search Implementation: `docs/explanation/phase_6_search_integration_implementation.md`
+- Semantic Chunking: `docs/explanation/semantic_chunking_implementation_plan.md`
 - CLI Commands: `docs/reference/cli_commands.md`

@@ -428,6 +428,6 @@ fn test_authenticated_operation() -> Result<()> {
 
 ## Related Documentation
 
-- Git Operations Guide: `docs/explanations/git_operations.md`
-- Git Integration: `docs/explanations/git_integration.md`
-- Phase 2.1 Completion: `docs/explanations/phase2_1_completion.md`
+- Git Operations Guide: `docs/explanation/git_operations.md`
+- Git Integration: `docs/explanation/git_integration.md`
+- Phase 2.1 Completion: `docs/explanation/phase2_1_completion.md`

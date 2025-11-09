@@ -583,7 +583,7 @@ curl http://api.example.com/api/v1/health
 ## Support and Resources
 
 - API Documentation: `/api/v1/docs` (coming in Phase 7.5.2)
-- Implementation Details: `docs/explanations/phase7_5_api_versioning_implementation.md`
+- Implementation Details: `docs/explanation/phase7_5_api_versioning_implementation.md`
 - GitHub Issues: Report problems or ask questions
 - Migration Guide: This document
 

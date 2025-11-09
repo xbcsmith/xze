@@ -154,7 +154,7 @@ impl CrossReferenceGenerator {
             DiátaxisCategory::Tutorial => "tutorials",
             DiátaxisCategory::HowTo => "how_to",
             DiátaxisCategory::Reference => "reference",
-            DiátaxisCategory::Explanation => "explanations",
+            DiátaxisCategory::Explanation => "explanation",
         }
     }
 
@@ -271,7 +271,7 @@ mod tests {
                     DiátaxisCategory::Tutorial => "tutorials",
                     DiátaxisCategory::HowTo => "how_to",
                     DiátaxisCategory::Reference => "reference",
-                    DiátaxisCategory::Explanation => "explanations",
+                    DiátaxisCategory::Explanation => "explanation",
                 },
                 filename
             )),

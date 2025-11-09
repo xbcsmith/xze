@@ -192,9 +192,9 @@ All 12 tests should pass:
 
 ## See Also
 
-- **Phase 9 Implementation**: `docs/explanations/phase_9_performance_optimization_implementation.md`
-- **Phase 9 Summary**: `docs/explanations/phase_9_summary.md`
-- **Implementation Plan**: `docs/explanations/search_features_unified_implementation_plan.md`
+- **Phase 9 Implementation**: `docs/explanation/phase_9_performance_optimization_implementation.md`
+- **Phase 9 Summary**: `docs/explanation/phase_9_summary.md`
+- **Implementation Plan**: `docs/explanation/search_features_unified_implementation_plan.md`
 
 ## Future Enhancements
 

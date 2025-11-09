@@ -266,7 +266,7 @@ xze/
 ├── docs/
 │   ├── tutorials/    # Learning-oriented guides
 │   ├── how_to/       # Task-oriented recipes
-│   ├── explanations/ # Understanding-oriented docs
+│   ├── explanation/  # Understanding-oriented docs
 │   └── reference/    # Information-oriented specs
 └── migrations/       # Database migrations
 ```
@@ -282,8 +282,8 @@ xze/
 ### For Developers
 
 - [Semantic Chunking API Reference](docs/reference/semantic_chunking_api.md) - Complete API documentation
-- [Implementation Plan](docs/explanations/semantic_chunking_implementation_plan.md) - Technical design and architecture
-- [Phase 6 Implementation](docs/explanations/phase_6_search_integration_implementation.md) - Search integration details
+- [Implementation Plan](docs/explanation/semantic_chunking_implementation_plan.md) - Technical design and architecture
+- [Phase 6 Implementation](docs/explanation/phase_6_search_integration_implementation.md) - Search integration details
 
 ### Development Guidelines
 
