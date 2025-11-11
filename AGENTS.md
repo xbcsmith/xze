@@ -9,81 +9,125 @@ Non-compliance will result in rejected code.
 
 ### BEFORE YOU START ANY TASK
 
-**YOU MUST verify these are installed:**
+#### Step 1: Verify Tools Are Installed
 
 ```bash
 rustup component add clippy rustfmt
 cargo install cargo-audit  # Optional but recommended
 ```
 
-**YOU MUST run these commands and ALL MUST PASS:**
+#### Step 2: MANDATORY - Consult Architecture Document FIRST
 
-```bash
-# 1. Format code
-cargo fmt --all
+**Before writing ANY code, you MUST:**
 
-# 2. Check compilation
-cargo check --all-targets --all-features
+1. **Read** `docs/reference/architecture.md` sections relevant to your task
+2. **Verify** data structures match the architecture EXACTLY
+3. **Check** module placement - don't create new modules arbitrarily
+4. **Confirm** crate boundaries are respected (xze-core has NO deps on xze-cli/xze-serve)
+5. **Use** the exact type names, field names, and signatures defined in architecture
+6. **NEVER** modify core data structures without explicit approval
 
-# 3. Lint with zero warnings
-cargo clippy --all-targets --all-features -- -D warnings
+**Rule**: If architecture.md defines it, YOU MUST USE IT EXACTLY AS DEFINED.
+Deviation = violation.
 
-# 4. Run all tests (must achieve >80% coverage)
-cargo test --all-features
-```
+#### Step 3: Plan Your Implementation
 
-**Expected Output**: All commands complete successfully with zero errors and
-zero warnings.
+- Identify which files need changes
+- Determine what tests are needed
+- Choose correct documentation category (Diataxis)
 
 ### AFTER YOU COMPLETE ANY TASK
 
-**YOU MUST verify:**
+#### Step 1: Run Quality Checks (ALL MUST PASS)
 
-- [ ] `cargo fmt --all` applied successfully
-- [ ] `cargo check --all-targets --all-features` passes with zero errors
-- [ ] `cargo clippy --all-targets --all-features -- -D warnings` shows zero
-      warnings
-- [ ] `cargo test --all-features` passes with >80% coverage
-- [ ] Documentation file created in `docs/explanation/` with
-      lowercase_filename.md
+```bash
+cargo fmt --all
+cargo check --all-targets --all-features
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
+```
+
+**Expected**: Zero errors, zero warnings, all tests pass.
+
+#### Step 2: Verify Architecture Compliance
+
+- [ ] Data structures match architecture.md definitions **EXACTLY**
+- [ ] Module placement follows architecture structure
+- [ ] Crate boundaries respected (xze-core → NO deps on cli/serve)
+- [ ] Type names match architecture (Repository, Document, etc.)
+- [ ] Configuration format follows architecture (YAML for configs)
+- [ ] No architectural deviations without documentation
+
+#### Step 3: Final Verification
+
+1. **Re-read** relevant architecture.md sections
+2. **Confirm** no architectural drift introduced
+3. **Update** `docs/explanation/implementations.md` with your work summary
+
+**If you can't explain WHY your code differs from architecture.md, IT'S WRONG.**
 
 **IF ANY CHECK FAILS, YOU MUST FIX IT BEFORE PROCEEDING.**
 
 ---
 
-## CRITICAL RULES - NEVER VIOLATE
+## IMPLEMENTATION RULES - NEVER VIOLATE
 
-### Rule 1: File Extensions (MOST VIOLATED)
+**Detailed rules for implementing code. See "Five Golden Rules" section at end for quick reference.**
+
+### Implementation Rule 1: File Extensions (MOST VIOLATED)
+
+**YOU WILL GET THIS WRONG IF YOU DON'T READ CAREFULLY**
+
+#### Real Files vs. Documentation
+
+- **Real implementation files**: `src/**/*.rs`, `crates/**/*.rs` - actual code that compiles
+- **Configuration files**: `.yaml`, `.toml` - runtime configuration
+- **Documentation files**: `docs/**/*.md` - explanations, references, guides
+
+#### The Test: "Is this code going to be executed?"
+
+**YES - It's real code:**
+
+- ✓ Save as `.rs` in `src/` or `crates/` directory
+- ✓ Must compile with `cargo check`
+- ✓ Must pass all quality gates
+
+**NO - It's documentation/example:**
+
+- ✓ Keep in `.md` file with proper code blocks
+- ✓ Use path annotation: ```path/to/file.rs#L1-10
+- ✓ Mark as pseudo-code if not compilable
+
+#### Configuration File Extensions
+
+Per architecture.md:
+
+- **XZe Config**: `xze.yaml` (NOT .yml)
+- **Docker Compose**: `docker-compose.yaml` (NOT .yml)
+- **CI/CD Configs**: `.yaml` extension (NOT .yml)
+- **Cargo**: `Cargo.toml` (NOT .yaml)
+
+**WRONG**: Creating config files with `.yml` extension
+**RIGHT**: Using `.yaml` extension as specified in architecture
+
+**Why this is violated**: Agents see `.yml` commonly used in industry and default to it. **NO**. XZe uses `.yaml` consistently.
 
 **YOU MUST:**
 
-- Use `.yaml` extension for ALL YAML files
+- Use `.rs` extension for ALL Rust implementation files
 - Use `.md` extension for ALL Markdown files
-- Use `.rs` extension for ALL Rust files
+- Use `.yaml` extension for ALL YAML configuration files
+- Use `.toml` extension for Cargo configuration
 
 **NEVER:**
 
 - ❌ Use `.yml` extension (even though common in industry)
 - ❌ Use `.MD` or `.markdown` extensions
+- ❌ Create `.rs` files for code that only appears in architecture documentation
 
-**Examples:**
+**Clarification**: YAML is for configuration files (xze.yaml, docker-compose.yaml, CI/CD configs). Use `.yaml` extension consistently.
 
-```text
-✅ CORRECT:
-   config/production.yaml
-   config/development.yaml
-   docker-compose.yaml
-
-❌ WRONG:
-   config/production.yml
-   config/development.yml
-   docker-compose.yml
-```
-
-**Why This Matters**: CI/CD pipelines expect `.yaml`. Using `.yml` will cause
-build failures.
-
-### Rule 2: Markdown File Naming (SECOND MOST VIOLATED)
+### Implementation Rule 2: Markdown File Naming (SECOND MOST VIOLATED)
 
 **YOU MUST:**
 
@@ -102,45 +146,22 @@ build failures.
 
 ```text
 ✅ CORRECT:
-   docs/explanation/distributed_tracing_architecture.md
+   docs/explanation/implementations.md
    docs/how_to/setup_monitoring.md
-   docs/reference/api_specification.md
+   docs/reference/architecture.md
    README.md (ONLY exception)
 
 ❌ WRONG:
-   docs/explanation/Distributed-Tracing-Architecture.md
-   docs/explanation/DistributedTracingArchitecture.md
-   docs/explanation/ARCHITECTURE.md
-   docs/how_to/setup-monitoring.md
-   docs/how_to/Setup Monitoring.md
+   docs/explanation/Implementations.md
+   docs/explanation/implementations-summary.md
+   docs/how_to/Setup-Monitoring.md
 ```
 
-**Why This Matters**: Inconsistent naming breaks documentation linking and makes
-files hard to find.
+**Why This Matters**: Inconsistent naming breaks documentation linking and makes files hard to find.
 
-### Rule 3: No Emojis Anywhere (THIRD MOST VIOLATED)
+### Implementation Rule 3: Code Quality Gates (MUST ALL PASS)
 
-**YOU MUST:**
-
-- Write ALL documentation without emojis
-- Write ALL code comments without emojis
-- Write ALL commit messages without emojis
-
-**NEVER:**
-
-- ❌ Use emojis in code: `// ✅ This function works`
-- ❌ Use emojis in docs: `## Setup Guide 🚀`
-- ❌ Use emojis in commits: `feat: add auth ✨`
-
-**ONLY EXCEPTION**: This AGENTS.md file uses emojis for visual markers to help
-you follow rules.
-
-**Why This Matters**: Emojis cause encoding issues and make documentation
-unprofessional.
-
-### Rule 4: Code Quality Gates (MUST ALL PASS)
-
-**YOU MUST ensure ALL of these pass before claiming task complete:**
+**Run these commands AFTER implementing your code (not before):**
 
 ```bash
 # Run in this exact order:
@@ -154,7 +175,7 @@ cargo check --all-targets --all-features
 # 3. Lint (treats warnings as errors)
 cargo clippy --all-targets --all-features -- -D warnings
 
-# 4. Tests (must have >80% coverage)
+# 4. Tests
 cargo test --all-features
 ```
 
@@ -169,90 +190,104 @@ cargo test --all-features
 
 **IF ANY FAIL**: Stop immediately and fix before proceeding.
 
-### Rule 5: Documentation is Mandatory
+**Note**: These are validation commands, not planning commands. Run AFTER writing code.
+
+### Implementation Rule 4: Documentation is Mandatory
 
 **YOU MUST:**
 
-- Create documentation file in `docs/explanation/` for EVERY feature/task
-- Use filename pattern: `{feature_name}_implementation.md` or
-  `{phase}_summary.md`
-- Include: Overview, Components, Implementation Details, Testing, Examples
 - Add `///` doc comments to EVERY public function, struct, enum, module
 - Include runnable examples in doc comments (tested by `cargo test`)
+- Update `docs/explanation/implementations.md` for EVERY feature/task
 
-**NEVER:**
+**DO NOT:**
 
+- ❌ Create new documentation files without being asked
 - ❌ Skip documentation because "code is self-documenting"
-- ❌ Put documentation in wrong directory
-- ❌ Forget to specify language in code blocks
+- ❌ Put documentation in wrong directory or use wrong filename format
+
+**ONLY UPDATE THESE FILES unless explicitly instructed otherwise:**
+
+- `docs/explanation/implementations.md` (your summary of what you built)
+- Code comments (/// doc comments in .rs files)
+
+**Rule**: Append your implementation summary to `implementations.md`. Do NOT create separate markdown files for each feature unless explicitly instructed.
 
 **Examples:**
 
 ````rust
-/// Calculates the factorial of a number
+/// Generates documentation for a repository using AI analysis
 ///
 /// # Arguments
 ///
-/// * `n` - The number to calculate factorial for (must be ≤ 20)
+/// * `repo` - The repository to analyze
+/// * `config` - AI model configuration
 ///
 /// # Returns
 ///
-/// Returns the factorial as u64
+/// Returns `Ok(Document)` with generated documentation
 ///
 /// # Errors
 ///
-/// Returns `MathError::Overflow` if n > 20
+/// Returns `GenerationError::AIServiceFailed` if Ollama is unreachable
+/// Returns `GenerationError::InvalidResponse` if AI response is malformed
 ///
 /// # Examples
 ///
 /// ```
-/// use xze::math::factorial;
+/// use xze_core::ai::AIAnalysisService;
+/// use xze_core::repository::Repository;
 ///
-/// let result = factorial(5);
-/// assert_eq!(result, 120);
+/// let service = AIAnalysisService::new(config);
+/// let doc = service.generate_reference(&repo).await?;
+/// assert_eq!(doc.category, DocumentCategory::Reference);
 /// ```
-///
-/// # Panics
-///
-/// Panics if n is negative (though type system prevents this)
-pub fn factorial(n: u64) -> Result<u64, MathError> {
+pub async fn generate_reference(
+    &self,
+    repo: &Repository,
+) -> Result<Document, GenerationError> {
     // Implementation
 }
 ````
 
-**Documentation File Structure:**
+### Implementation Rule 5: Error Handling (MANDATORY PATTERNS)
 
-````markdown
-# Feature Name Implementation
+**YOU MUST:**
 
-## Overview
+- Use `Result<T, E>` for ALL recoverable errors
+- Use `?` operator for error propagation
+- Use `thiserror` for custom error types
+- Use descriptive error messages
 
-Brief description of what was implemented
+**NEVER:**
 
-## Components Delivered
+- ❌ Use `unwrap()` without justification comment
+- ❌ Use `expect()` without descriptive message
+- ❌ Ignore errors with `let _ =`
+- ❌ Return `panic!` for recoverable errors
 
-- File 1: Description (X lines)
-- File 2: Description (Y lines)
-
-## Implementation Details
-
-Technical explanation with code examples
-
-## Testing
-
-Test coverage and validation results
-
-## Usage Examples
+**Correct Pattern:**
 
 ```rust
-// Complete, runnable examples
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum RepositoryError {
+    #[error("Failed to clone repository: {0}")]
+    CloneFailed(String),
+
+    #[error("Invalid repository URL: {0}")]
+    InvalidUrl(String),
+}
+
+pub async fn clone_repository(url: &str) -> Result<Repository, RepositoryError> {
+    let path = validate_url(url)
+        .map_err(|e| RepositoryError::InvalidUrl(e.to_string()))?;
+
+    // Clone logic
+    Ok(repository)
+}
 ```
-````
-
-## References
-
-- Link to architecture docs
-- Link to related features
 
 ---
 
@@ -263,39 +298,33 @@ Test coverage and validation results
 - **Name**: XZe
 - **Type**: AI-powered documentation generator
 - **Language**: Rust (latest stable)
-- **Key Features**: AI-powered code analysis (Ollama), Git integration, Diataxis documentation framework, automated documentation generation
+- **Key Features**:
+  - **AI-Powered Analysis**: Uses Ollama for intelligent code analysis
+  - **Diataxis Framework**: Structured documentation (Reference, How-To, Explanation, Tutorial)
+  - **Git Integration**: Automatic PR creation, change detection, CI/CD hooks
+  - **Multi-Repository Support**: Analyzes and documents multiple codebases
 
 ### Architecture (Crate-Based Design)
 
 **CRITICAL**: YOU MUST respect these crate boundaries:
 
 ```text
-┌──────────────────────────────────────────────┐
-│  xze (Binary Crate)                          │
-│  - Main entry point, CLI orchestration       │
-├──────────────────────────────────────────────┤
-│  xze-cli (crates/cli/)                       │
-│  - Command-line interface, user interaction  │
-├──────────────────────────────────────────────┤
-│  xze-serve (crates/serve/)                   │
-│  - Server mode, webhooks, REST API           │
-├──────────────────────────────────────────────┤
-│  xze-core (crates/core/)                     │
-│  - Core business logic and types             │
-│  - AI analysis, Git operations, parsers      │
-│  - Documentation generation, pipeline        │
-│  - Change detection, watchers, PR management │
-└──────────────────────────────────────────────┘
+xze (binary)
+├─ xze-cli (crates/cli/)     - CLI interface
+├─ xze-serve (crates/serve/) - Server mode, webhooks, REST API
+└─ xze-core (crates/core/)   - Core business logic (NO deps on cli/serve)
 ```
 
-**Crate Dependencies (MUST FOLLOW):**
+**Dependency Rules (STRICT):**
 
 - ✅ xze → xze-cli, xze-serve
 - ✅ xze-cli → xze-core
 - ✅ xze-serve → xze-core
-- ❌ xze-core → xze-cli (NEVER)
-- ❌ xze-core → xze-serve (NEVER)
-- ❌ xze-core → xze (NEVER)
+- ❌ xze-core → xze-cli (NEVER - violates architecture)
+- ❌ xze-core → xze-serve (NEVER - violates architecture)
+- ❌ xze-core → xze (NEVER - violates architecture)
+
+**Why This Matters**: xze-core is the domain layer. It must remain independent of interface concerns. Breaking this boundary creates circular dependencies and makes the code untestable.
 
 ---
 
@@ -305,32 +334,33 @@ Test coverage and validation results
 
 #### Phase 1: Preparation
 
-1. **Understand the Task**
+1. **Read Architecture First**
 
-   - Read requirements completely
-   - Identify which architecture layers are affected
-   - Check for existing similar code
+   - Consult `docs/reference/architecture.md`
+   - Understand data structures (Section 3)
+   - Verify module placement (Section 2)
+   - Check crate boundaries
 
 2. **Search Existing Code**
 
    ```bash
    # Find relevant files
-   grep -r "function_name" src/
-   find src/ -name "*feature*.rs"
+   grep -r "function_name" src/ crates/
+   find src/ crates/ -name "*feature*.rs"
    ```
 
 3. **Plan Changes**
    - List files to create/modify
    - Identify tests needed
-   - Determine documentation category
+   - Ensure architecture compliance
 
 #### Phase 2: Implementation
 
 1. **Write Code**
 
-   ````rust
-   // Follow this pattern for ALL public items:
+   Follow this pattern for ALL public items:
 
+   ````rust
    /// One-line description
    ///
    /// Longer explanation of behavior and purpose.
@@ -350,7 +380,7 @@ Test coverage and validation results
    /// # Examples
    ///
    /// ```
-   /// use xze::module::function;
+   /// use xze_core::module::function;
    ///
    /// let result = function(arg);
    /// assert_eq!(result, expected);
@@ -358,7 +388,6 @@ Test coverage and validation results
    pub fn function(param: Type) -> Result<ReturnType, Error> {
        // Implementation
    }
-
    ````
 
 2. **Write Tests (MANDATORY)**
@@ -394,6 +423,13 @@ Test coverage and validation results
    }
    ```
 
+   **Test Requirements:**
+
+   - Test ALL public functions
+   - Cover success, failure, and edge cases
+   - Use descriptive names: `test_{function}_{condition}_{expected}`
+   - Minimum 3 tests per function
+
 3. **Run Quality Checks Incrementally**
 
    ```bash
@@ -413,73 +449,60 @@ Test coverage and validation results
 
 #### Phase 3: Documentation
 
-**YOU MUST create** `docs/explanation/{feature}_implementation.md`:
+**Update** `docs/explanation/implementations.md`:
+
+Append your implementation summary to the end of the file:
 
 ````markdown
-# Feature Name Implementation
+---
 
-## Overview
+## Feature Name Implementation
+
+**Date**: YYYY-MM-DD
+**Author**: AI Agent
+
+### Overview
 
 Brief description of what was implemented and why.
 
-## Components Delivered
+### Components Delivered
 
 - `src/path/file.rs` (XXX lines) - Description
-- `src/path/tests.rs` (YYY lines) - Test coverage
-- `docs/explanation/feature.md` (ZZZ lines) - This document
+- `crates/core/src/module.rs` (YYY lines) - Description
 
-Total: ~N,NNN lines
+### Implementation Details
 
-## Implementation Details
+Technical explanation with code examples.
 
-### Component 1: Name
+### Architecture Compliance
 
-Description with code examples:
+- ✅ Followed architecture.md Section X.Y
+- ✅ Respected crate boundaries
+- ✅ Used defined data structures exactly
 
-```rust
-pub fn example() {
-    // Code
-}
+### Testing
+
+Test coverage results:
+
+```text
+test result: ok. X passed; 0 failed
 ```
 ````
 
-### Component 2: Name
-
-More details...
-
-## Testing
-
-Test coverage: XX% (must be >80%)
-
-```text
-test result: ok. X passed; 0 failed; Y ignored
-```
-
-## Usage Examples
-
-Complete, runnable examples:
-
-```rust
-use xze::module::Feature;
-
-fn main() {
-    let feature = Feature::new();
-    feature.do_something();
-}
-```
-
-## Validation Results
+### Validation Results
 
 - ✅ `cargo fmt --all` passed
 - ✅ `cargo check --all-targets --all-features` passed
-- ✅ `cargo clippy --all-targets --all-features -- -D warnings` shows zero warnings
-- ✅ `cargo test --all-features` passed with >80% coverage
-- ✅ Documentation complete
+- ✅ `cargo clippy --all-targets --all-features -- -D warnings` passed
+- ✅ `cargo test --all-features` passed
 
-## References
+### References
 
-- Architecture: `docs/explanation/architecture.md`
-- API Reference: `docs/reference/api.md`
+- Architecture: `docs/reference/architecture.md` Section X.Y
+
+````
+
+**Do NOT create separate markdown files unless explicitly instructed.**
 
 #### Phase 4: Validation (CRITICAL)
 
@@ -500,216 +523,61 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 # 4. Test check
 cargo test --all-features
-# Expected: "test result: ok. X passed; 0 failed" where X > previous count
+# Expected: "test result: ok. X passed; 0 failed"
 
-# 5. Verify documentation created
-ls -la docs/explanation/*{feature}*.md
-# Expected: File exists with lowercase filename
+# 5. Verify architecture compliance
+# Re-read relevant architecture.md sections
+# Confirm no deviations introduced
 
-# 6. Verify no emoji in docs
-grep -r "[\x{1F600}-\x{1F64F}]" docs/
-# Expected: No matches (except AGENTS.md)
-```
+# 6. Verify implementations.md updated
+git diff docs/explanation/implementations.md
+# Expected: Shows your appended summary
+````
 
 **IF ANY VALIDATION FAILS: Stop and fix immediately.**
 
 ---
 
-## Rust Coding Standards
-
-### Error Handling (MANDATORY PATTERNS)
-
-**YOU MUST:**
-
-- Use `Result<T, E>` for ALL recoverable errors
-- Use `?` operator for error propagation
-- Use `thiserror` for custom error types
-- Use descriptive error messages
-
-**NEVER:**
-
-- ❌ Use `unwrap()` without justification
-- ❌ Use `expect()` without descriptive message
-- ❌ Ignore errors with `let _ =`
-- ❌ Return `panic!` for recoverable errors
-
-**Correct Patterns:**
-
-```rust
-// ✅ GOOD - Proper error handling
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum ConfigError {
-    #[error("Failed to read config file: {0}")]
-    ReadError(String),
-
-    #[error("Invalid YAML syntax: {0}")]
-    ParseError(String),
-}
-
-pub fn load_config(path: &str) -> Result<Config, ConfigError> {
-    let contents = std::fs::read_to_string(path)
-        .map_err(|e| ConfigError::ReadError(e.to_string()))?;
-
-    let config: Config = serde_yaml::from_str(&contents)
-        .map_err(|e| ConfigError::ParseError(e.to_string()))?;
-
-    config.validate()?;
-    Ok(config)
-}
-
-// ❌ BAD - Using unwrap
-pub fn load_config(path: &str) -> Config {
-    let contents = std::fs::read_to_string(path).unwrap(); // NEVER
-    serde_yaml::from_str(&contents).unwrap() // NEVER
-}
-
-// ⚠️ ACCEPTABLE - unwrap with justification
-pub fn get_app_version() -> String {
-    // SAFETY: This is set at compile time and cannot fail
-    env!("CARGO_PKG_VERSION").to_string()
-}
-```
-
-### Testing Standards (MANDATORY)
-
-**YOU MUST:**
-
-- Write tests for ALL public functions
-- Test both success and failure cases
-- Test edge cases and boundaries
-- Achieve >80% code coverage
-- Use descriptive test names: `test_{function}_{condition}_{expected}`
-
-**Test Structure Template:**
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Success case
-    #[test]
-    fn test_parse_config_with_valid_yaml() {
-        let yaml = "key: value";
-        let result = parse_config(yaml);
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().key, "value");
-    }
-
-    // Failure case
-    #[test]
-    fn test_parse_config_with_invalid_yaml() {
-        let yaml = "invalid: : yaml";
-        let result = parse_config(yaml);
-        assert!(result.is_err());
-    }
-
-    // Edge case
-    #[test]
-    fn test_parse_config_with_empty_string() {
-        let result = parse_config("");
-        assert!(result.is_err());
-    }
-
-    // Boundary condition
-    #[test]
-    fn test_parse_config_with_max_size() {
-        let yaml = "x".repeat(MAX_CONFIG_SIZE);
-        let result = parse_config(&yaml);
-        assert!(result.is_ok());
-    }
-
-    // Error propagation
-    #[test]
-    fn test_parse_config_propagates_validation_error() {
-        let yaml = "invalid_field: value";
-        let result = parse_config(yaml);
-        assert!(matches!(result, Err(ConfigError::ValidationError(_))));
-    }
-}
-```
-
----
-
 ## Git Conventions
 
-### Branch Naming (MANDATORY FORMAT)
+### Branch Naming
 
-**YOU MUST use this format:**
-
-```text
-pr-<feat>-<issue>
-```
+**Format:** `pr-<description>-<issue>`
 
 **Examples:**
 
-```text
-✅ CORRECT:
-   pr-semantic-chunking-1234
-   pr-xze-5678
-   pr-proj-9012
-
-❌ WRONG:
-   PR-CPIPE-1234        (uppercase)
-   feature/cpipe-1234   (wrong format)
-   cpipe-1234           (missing pr- prefix)
-   pr_cpipe_1234        (underscore instead of dash)
+```
+✅ pr-semantic-chunking-1234
+✅ pr-ollama-integration-5678
+❌ PR-FEAT-1234 (uppercase)
+❌ feature/auth-1234 (wrong prefix)
 ```
 
-### Commit Messages (MANDATORY FORMAT)
+### Commit Messages
 
 **Format:**
 
-```text
+```
 <type>(<scope>): <description>
 
-[optional body explaining why change was made]
-
-[optional footer with breaking changes]
+[optional body]
 ```
 
-**Rules (MUST FOLLOW ALL):**
+**Rules:**
 
-1. Type MUST be one of: `feat|fix|docs|style|refactor|perf|test|chore`
-2. Scope is optional but recommended
-3. Description MUST be lowercase
-4. Description MUST use imperative mood ("add" not "added")
-5. First line MUST be ≤72 characters
-
-**Types Explained:**
-
-- `feat` - New feature (triggers minor version bump)
-- `fix` - Bug fix (triggers patch version bump)
-- `docs` - Documentation only (no code changes)
-- `style` - Code formatting (no logic changes)
-- `refactor` - Code restructuring (no behavior changes)
-- `perf` - Performance improvements
-- `test` - Adding/fixing tests
-- `chore` - Build process, dependencies, tools
+1. Type: `feat|fix|docs|style|refactor|perf|test|chore`
+2. Description: lowercase, imperative mood ("add" not "added")
+3. First line: ≤72 characters
+4. Scope: optional but recommended
 
 **Examples:**
 
-```text
-✅ CORRECT:
-feat(auth): add JWT token refresh endpoint (CPIPE-1234)
-fix(api): handle edge case in event validation (CPIPE-5678)
-docs(readme): update installation instructions (XZE-9012)
-refactor(metrics): simplify prometheus integration (CPIPE-3456)
-
-With body:
-feat(tracing): add distributed tracing support (XZE-4567)
-
-Implements OpenTelemetry integration with Jaeger exporter.
-Adds automatic span creation for all HTTP requests.
-
-❌ WRONG:
-Added JWT token refresh (CPIPE-1234)              # Wrong mood, no type
-feat(auth): Add JWT Token (cpipe-1234)            # Wrong case
-feat: add JWT (CPIPE-1234)                        # Missing scope
-add jwt refresh (CPIPE-1234)                      # No type
-feat(auth): add JWT token refresh feature that allows users to... (CPIPE-1234)  # Too long
+```
+✅ feat(ai): add ollama integration for code analysis
+✅ fix(git): handle edge case in PR creation
+✅ docs(arch): update architecture with new modules
+❌ Added Ollama support (no type, wrong mood)
+❌ feat(ai): Add Ollama (wrong case)
 ```
 
 ---
@@ -722,275 +590,71 @@ feat(auth): add JWT token refresh feature that allows users to... (CPIPE-1234)  
 
 **Purpose**: Learning-oriented, step-by-step lessons
 
-**Use for**:
-
-- Getting started guides
-- Learning path tutorials
-- Hands-on examples
-
-**Example**: `docs/tutorials/getting_started.md`
+**Use for**: Getting started guides, learning paths
 
 ### Category 2: How-To Guides (`docs/how_to/`)
 
 **Purpose**: Task-oriented, problem-solving recipes
 
-**Use for**:
+**Use for**: Installation, configuration, troubleshooting
 
-- Installation steps
-- Configuration guides
-- Troubleshooting procedures
-
-**Example**: `docs/how_to/setup_monitoring.md`
-
-### Category 3: Explanations (`docs/explanation/`) ← DEFAULT FOR YOUR SUMMARIES
+### Category 3: Explanations (`docs/explanation/`)
 
 **Purpose**: Understanding-oriented, conceptual discussion
 
-**Use for**:
+**Use for**: Architecture explanations, design decisions, **implementations.md**
 
-- Architecture explanations
-- Design decisions
-- Implementation summaries ← **YOU TYPICALLY CREATE THESE**
-- Concept clarifications
-
-**Example**: `docs/explanation/phase4_observability_implementation.md`
+**This is where you update your work summaries.**
 
 ### Category 4: Reference (`docs/reference/`)
 
 **Purpose**: Information-oriented, technical specifications
 
-**Use for**:
-
-- API documentation
-- Configuration reference
-- Command reference
-
-**Example**: `docs/reference/api_specification.md`
+**Use for**: API documentation, configuration reference, **architecture.md**
 
 ### Decision Tree: Where to Put Documentation?
 
 ```text
-Is it a step-by-step tutorial?
-├─ YES → docs/tutorials/
-└─ NO
-   ├─ Is it solving a specific task?
-   │  ├─ YES → docs/how_to/
-   │  └─ NO
-   │     ├─ Is it explaining concepts/architecture?
-   │     │  ├─ YES → docs/explanation/  ← MOST COMMON FOR AI AGENTS
-   │     │  └─ NO
-   │     │     └─ Is it reference material?
-   │     │        └─ YES → docs/reference/
+Implementation summary? → docs/explanation/implementations.md (UPDATE THIS)
+Architecture/specs? → docs/reference/architecture.md (READ THIS)
+Step-by-step tutorial? → docs/tutorials/
+Solving specific task? → docs/how_to/
 ```
+
+**Default**: Update `docs/explanation/implementations.md` with your work.
 
 ---
 
-## Common Pitfalls and How to Avoid Them
-
-### Pitfall 1: Using `.yml` Instead of `.yaml`
-
-**ISSUE**: `.yml` is common in industry, so agents default to it
-
-**WHY IT FAILS**: Our CI/CD expects `.yaml` extension only
-
-**PREVENTION**:
-
-```bash
-# ✅ Before creating any YAML file, use full extension
-touch config/production.yaml
-
-# ❌ Never use short extension
-touch config/production.yml  # Will cause CI failure
-```
-
-**FIX IF YOU MADE THIS MISTAKE**:
-
-```bash
-# Rename all .yml to .yaml
-find . -name "*.yml" -exec sh -c 'mv "$0" "${0%.yml}.yaml"' {} \;
-```
-
-### Pitfall 2: Uppercase or CamelCase in Documentation Filenames
-
-**ISSUE**: Agents use CamelCase or capitalization for readability
-
-**WHY IT FAILS**: Breaks documentation links, inconsistent naming
-
-**PREVENTION**:
-
-```bash
-# ✅ Always use lowercase_with_underscores
-touch docs/explanation/distributed_tracing_implementation.md
-
-# ❌ Never use these patterns
-touch docs/explanation/DistributedTracingImplementation.md  # CamelCase
-touch docs/explanation/Distributed-Tracing-Implementation.md # Capitalized
-touch docs/explanation/DISTRIBUTED_TRACING.md # Uppercase
-```
-
-**FIX IF YOU MADE THIS MISTAKE**:
-
-```bash
-# Rename to lowercase with underscores
-mv docs/explanation/DistributedTracing.md \
-   docs/explanation/distributed_tracing.md
-```
-
-### Pitfall 3: Forgetting to Run `cargo fmt`
-
-**ISSUE**: Code works but fails CI due to formatting
-
-**WHY IT FAILS**: CI runs `cargo fmt --check` which fails if code isn't
-formatted
-
-**PREVENTION**:
-
-```bash
-# ALWAYS run before committing
-cargo fmt --all
-
-# Verify it worked
-cargo fmt --all -- --check
-# Expected: no output = success
-```
-
-**FIX IF CI FAILS**:
-
-```bash
-cargo fmt --all
-git add -u
-git commit --amend --no-edit
-```
-
-### Pitfall 4: Using `unwrap()` Without Justification
-
-**ISSUE**: Code works in testing but panics in production
-
-**WHY IT FAILS**: Unexpected errors cause service crashes
-
-**PREVENTION**:
-
-```rust
-// ❌ BAD - Will panic if file doesn't exist
-let config = std::fs::read_to_string("config.yaml").unwrap();
-
-// ✅ GOOD - Handles error gracefully
-let config = std::fs::read_to_string("config.yaml")
-    .map_err(|e| ConfigError::ReadFailed(e.to_string()))?;
-```
-
-**FIX IF YOU MADE THIS MISTAKE**:
-
-```bash
-# Find all unwrap calls
-grep -rn "unwrap()" src/
-
-# Replace with proper error handling
-```
-
-### Pitfall 5: Missing Documentation File
-
-**ISSUE**: Task complete but no documentation created
-
-**WHY IT FAILS**: Knowledge is lost, future developers confused
-
-**PREVENTION**:
-
-```bash
-# Immediately after starting a task, create doc file
-touch docs/explanation/feature_name_implementation.md
-
-# Fill it in as you work
-# Add final validation section when done
-```
-
-### Pitfall 6: Emojis in Documentation
-
-**ISSUE**: Emojis used for "visual appeal"
-
-**WHY IT FAILS**: Encoding issues, unprofessional, breaks tooling
-
-**PREVENTION**:
-
-```markdown
-<!-- ❌ BAD -->
-
-# Setup Guide 🚀
-
-## Prerequisites ✅
-
-<!-- ✅ GOOD -->
-
-# Setup Guide
-
-## Prerequisites
-```
-
-**FIX IF YOU MADE THIS MISTAKE**:
-
-```bash
-# Find all emoji usage
-grep -r "[\x{1F600}-\x{1F64F}]" docs/
-
-# Remove manually
-```
-
-### Pitfall 7: Ignoring Clippy Warnings
-
-**ISSUE**: "It's just a warning, not an error"
-
-**WHY IT FAILS**: CI treats warnings as errors (`-D warnings`)
-
-**PREVENTION**:
-
-```bash
-# Fix ALL warnings before committing
-cargo clippy --all-targets --all-features -- -D warnings
-
-# If you see warnings, fix them one by one
-# Re-run after each fix to ensure no new warnings introduced
-```
-
----
-
-## Emergency Procedures
+## Debugging Guide
 
 ### When Quality Checks Fail
 
-**SYSTEMATIC DEBUG PROCESS:**
+**Systematic Process:**
 
 ```bash
-# Step 1: Fix formatting (always do this first)
+# 1. Fix formatting first (auto-fixes most issues)
 cargo fmt --all
 
-# Step 2: Fix compilation errors
+# 2. Fix compilation errors
 cargo check --all-targets --all-features
-# Read each error message
-# Fix root cause, not symptoms
-# Re-run after each fix
+# Read error messages carefully, fix root cause
 
-# Step 3: Fix clippy warnings (one at a time)
+# 3. Fix clippy warnings one at a time
 cargo clippy --all-targets --all-features -- -D warnings
-# Fix first warning
-# Re-run clippy
-# Repeat until zero warnings
+# Fix first warning, re-run, repeat
 
-# Step 4: Fix failing tests
+# 4. Fix failing tests
 cargo test --all-features -- --nocapture
-# Read test failure output
-# Fix failing tests or update expectations
-# Re-run tests
+# Read failure output, fix code or update test
 
-# Step 5: Verify all checks pass
-cargo fmt --all
-cargo check --all-targets --all-features
-cargo clippy --all-targets --all-features -- -D warnings
+# 5. Verify all pass
+cargo fmt --all && \
+cargo check --all-targets --all-features && \
+cargo clippy --all-targets --all-features -- -D warnings && \
 cargo test --all-features
 ```
 
 ### When Tests Fail
-
-**DIAGNOSTIC COMMANDS:**
 
 ```bash
 # Run with detailed output
@@ -999,17 +663,14 @@ cargo test -- --nocapture --test-threads=1
 # Run specific test
 cargo test test_name -- --nocapture
 
-# Run tests in specific module
-cargo test module::tests:: -- --nocapture
-
-# Show backtrace on panic
+# Show backtrace
 RUST_BACKTRACE=1 cargo test
 
-# Run with debug logging
+# Debug logging
 RUST_LOG=debug cargo test
 ```
 
-**DEBUGGING STRATEGY:**
+**Debugging Strategy:**
 
 1. Read the test failure message carefully
 2. Understand what the test expects
@@ -1019,28 +680,15 @@ RUST_LOG=debug cargo test
 
 ### When Clippy Reports Warnings
 
-**FIXING PROCESS:**
-
 ```bash
 # List all warnings
 cargo clippy --all-targets --all-features 2>&1 | grep "warning:"
 
-# Fix warnings by category:
-
-# 1. Unused code
-#    - Remove if truly unused
-#    - Add #[allow(dead_code)] with justification if needed
-
-# 2. Complexity warnings
-#    - Refactor complex functions
-#    - Extract helper functions
-
-# 3. Style warnings
-#    - Follow clippy suggestions
-#    - Run cargo fix if available
-
-# 4. Correctness warnings
-#    - Fix immediately (these are bugs)
+# Fix by category:
+# - Unused code: Remove or add #[allow(dead_code)] with comment
+# - Complexity: Refactor or extract helpers
+# - Style: Follow clippy suggestions
+# - Correctness: Fix immediately (these are bugs)
 
 # Re-run after each fix
 cargo clippy --all-targets --all-features -- -D warnings
@@ -1054,162 +702,168 @@ cargo clippy --all-targets --all-features -- -D warnings
 
 ### Code Quality
 
-- [ ] `cargo fmt --all` applied successfully
-- [ ] `cargo check --all-targets --all-features` passes with zero errors
-- [ ] `cargo clippy --all-targets --all-features -- -D warnings` shows zero warnings
-- [ ] `cargo test --all-features` passes with >80% coverage
-- [ ] No `unwrap()` or `expect()` without justification
-- [ ] All public items have doc comments with examples
-- [ ] All functions have at least 3 tests (success, failure, edge case)
+- [ ] `cargo fmt --all` passes
+- [ ] `cargo check --all-targets --all-features` passes
+- [ ] `cargo clippy --all-targets --all-features -- -D warnings` shows 0 warnings
+- [ ] `cargo test --all-features` passes
+- [ ] No `unwrap()` without justification
+- [ ] All public items have `///` doc comments with examples
+
+### Architecture Compliance
+
+- [ ] Consulted `docs/reference/architecture.md` before starting
+- [ ] Data structures match architecture definitions EXACTLY
+- [ ] Module placement follows architecture structure
+- [ ] Crate boundaries respected (xze-core → NO deps on cli/serve)
+- [ ] Type names match architecture
+- [ ] Configuration format follows architecture (.yaml for configs)
+- [ ] No architectural deviations without documentation
 
 ### Testing
 
-- [ ] Unit tests added for ALL new functions
-- [ ] Integration tests added if needed
-- [ ] Test count increased from before (verify with `cargo test --lib`)
-- [ ] Both success and failure cases tested
-- [ ] Edge cases and boundaries covered
-- [ ] All tests use descriptive names: `test_{function}_{condition}_{expected}`
+- [ ] Tests added for ALL new functions
+- [ ] Success, failure, and edge cases covered
+- [ ] Test names follow `test_{function}_{condition}_{expected}`
+- [ ] Test count increased (verify with `cargo test --lib`)
 
 ### Documentation
 
-- [ ] Documentation file created in `docs/explanation/`
-- [ ] Filename uses lowercase_with_underscores.md
-- [ ] README.md exception is ONLY uppercase filename
-- [ ] No emojis anywhere in documentation
-- [ ] All code blocks specify language (`rust, not`)
-- [ ] Documentation includes: Overview, Components, Details, Testing, Examples
-- [ ] Markdownlint passes (if configured)
+- [ ] `docs/explanation/implementations.md` updated with summary
+- [ ] NO new markdown files created (unless instructed)
+- [ ] Filename is `lowercase_with_underscores.md` (if file was created)
+- [ ] No emojis anywhere
+- [ ] All code blocks specify language
 
 ### Files and Structure
 
-- [ ] All YAML files use `.yaml` extension (NOT `.yml`)
-- [ ] All Markdown files use `.md` extension
+- [ ] YAML files use `.yaml` (NOT `.yml`)
+- [ ] Markdown files use `.md`
 - [ ] No uppercase in filenames except `README.md`
-- [ ] Files placed in correct architecture layer
-- [ ] Documentation in correct Diataxis category
+- [ ] Files in correct crate (cli/serve/core)
 
 ### Git
 
-- [ ] Branch name follows `pr-<feat>-<issue>` format (lowercase)
-- [ ] Commit message follows conventional commits
-- [ ] Commit message first line ≤72 characters
-- [ ] Commit uses imperative mood ("add" not "added")
-
-### Architecture
-
-- [ ] Changes respect layer boundaries
-- [ ] Domain layer has no infrastructure dependencies
-- [ ] Proper separation of concerns maintained
-- [ ] No circular dependencies introduced
+- [ ] Branch: `pr-<description>-<issue>` (lowercase)
+- [ ] Commit: `<type>(<scope>): <description>` (≤72 chars, imperative)
 
 ---
 
 ## Quick Command Reference
 
-### Essential Cargo Commands
-
 ```bash
-# Build and check
-cargo build                                      # Debug build
-cargo build --release                            # Optimized build
-cargo check --all-targets --all-features         # Fast compile check
+# Quality workflow (run before every commit)
+cargo fmt --all
+cargo check --all-targets --all-features
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --all-features
 
-# Quality
-cargo fmt --all                                  # Format all code
-cargo fmt --all -- --check                       # Check formatting
-cargo clippy --all-targets --all-features -- -D warnings  # Lint
+# Build
+cargo build                                    # Debug
+cargo build --release                          # Optimized
 
 # Testing
-cargo test                                       # Run all tests
-cargo test --lib                                 # Library tests only
-cargo test --all-features                        # With all features
-cargo test -- --nocapture                        # Show output
-cargo test test_name                             # Specific test
+cargo test                                     # All tests
+cargo test --lib                               # Library only
+cargo test -- --nocapture                      # Show output
+cargo test test_name                           # Specific test
 
 # Documentation
-cargo doc --open                                 # Generate and open docs
-cargo doc --no-deps --open                       # Without dependencies
+cargo doc --open                               # Generate docs
 
 # Maintenance
-cargo clean                                      # Remove build artifacts
-cargo update                                     # Update dependencies
-cargo tree                                       # Show dependency tree
-cargo audit                                      # Security check
-```
+cargo clean                                    # Remove artifacts
+cargo update                                   # Update dependencies
+cargo audit                                    # Security check
 
-### Project-Specific Commands
-
-```bash
-# Quality validation workflow
-cargo fmt --all                                  # Format code
-cargo check --all-targets --all-features         # Check compilation
-cargo clippy --all-targets --all-features -- -D warnings  # Lint
-cargo test --all-features                        # Run tests
-
-# Additional make commands (if available)
-make test                                        # Run tests
-make build                                       # Build project
-make clean                                       # Clean artifacts
-
-# Adding dependencies
-cargo add <crate_name>                           # Add to Cargo.toml
-cargo add <crate_name> --dev                     # Dev dependency
-cargo add <crate_name> --features=<feature>      # With feature
+# Dependencies
+cargo add <crate>                              # Add dependency
+cargo add <crate> --dev                        # Dev dependency
 ```
 
 ---
 
-## Summary: The Three Golden Rules
+## Common Mistakes to Avoid
+
+| Mistake                   | Why It Fails                  | Fix                                 |
+| ------------------------- | ----------------------------- | ----------------------------------- |
+| Using `.yml`              | CI expects `.yaml`            | Rename: `mv file.yml file.yaml`     |
+| Creating separate MD docs | Should update implementations | Append to `implementations.md`      |
+| Violating crate bounds    | Breaks architecture           | Check deps: xze-core → NO cli/serve |
+| Skipping architecture.md  | Code doesn't match design     | Read architecture.md FIRST          |
+| CamelCase docs            | Breaks links                  | Use `lowercase_with_underscores.md` |
+| Forgetting `cargo fmt`    | CI formatting check fails     | Always run before commit            |
+| Using `unwrap()`          | Panics in production          | Use `?` and proper error handling   |
+| Missing doc comments      | CI may enforce                | Add `///` to all public items       |
+| Ignoring clippy           | CI treats warnings as errors  | Fix all warnings                    |
+
+---
+
+## THE FIVE GOLDEN RULES - QUICK REFERENCE
 
 **If you remember nothing else, remember these:**
 
-### Rule 1: File Extensions
+### Golden Rule 1: Consult Architecture First
 
 ```text
-.yaml (NOT .yml)
-.md (NOT .MD or .markdown)
+Before ANY code:
+1. Read docs/reference/architecture.md
+2. Verify data structures match EXACTLY
+3. Check crate boundaries
+4. Use defined types, no deviations
 ```
 
-### Rule 2: Documentation Filenames
+### Golden Rule 2: File Extensions & Formats
 
 ```text
-lowercase_with_underscores.md
-Exception: README.md ONLY
+.yaml (NOT .yml) - for configs
+.md (NOT .MD) - for docs
+.rs - for code
+lowercase_with_underscores.md - for filenames
 ```
 
-### Rule 3: Quality Checks
+### Golden Rule 3: Documentation Updates
 
 ```text
-All four cargo commands MUST pass before claiming done:
+UPDATE: docs/explanation/implementations.md (append summary)
+DO NOT: Create new markdown files (unless instructed)
+ALWAYS: Add /// doc comments to public items
+```
+
+### Golden Rule 4: Quality Checks
+
+```text
+All four cargo commands MUST pass:
 - cargo fmt --all
 - cargo check --all-targets --all-features
 - cargo clippy --all-targets --all-features -- -D warnings
 - cargo test --all-features
 ```
 
+### Golden Rule 5: Crate Boundaries
+
+```text
+xze-core → NO dependencies on xze-cli or xze-serve
+Violation = architectural failure
+Check architecture.md if unsure
+```
+
 ---
 
 ## The Golden Workflow
 
-**FOLLOW THIS SEQUENCE FOR EVERY TASK:**
+**Follow this sequence for EVERY task:**
 
-```text
-1. Create branch: pr-feat-issue
-2. Implement code with /// doc comments
-3. Add tests (>80% coverage)
-4. Run: cargo fmt --all
-5. Run: cargo check --all-targets --all-features
-6. Run: cargo clippy --all-targets --all-features -- -D warnings
-7. Run: cargo test --all-features
-8. Create: docs/explanation/{feature}_implementation.md
-9. Commit with proper format: <type>(<scope>): <description>
-10. Verify: All checklist items above are checked
-```
+1. **Read** `docs/reference/architecture.md` sections relevant to task
+2. **Create branch**: `pr-<description>-<issue>`
+3. **Implement code** with `///` doc comments matching architecture
+4. **Add tests** (success, failure, edge cases)
+5. **Run four commands** (all must pass)
+6. **Append summary** to `docs/explanation/implementations.md`
+7. **Verify architecture compliance** (no deviations)
+8. **Commit**: `<type>(<scope>): <description>`
+9. **Verify checklist** (all items checked)
 
-<!-- markdownlint-enable MD040 -->
-
-**IF YOU FOLLOW THIS WORKFLOW, YOUR CODE WILL BE ACCEPTED.**
+**If you follow this workflow precisely, your code will be accepted.**
 
 **IF YOU SKIP STEPS OR VIOLATE RULES, YOUR CODE WILL BE REJECTED.**
 
@@ -1217,8 +871,13 @@ All four cargo commands MUST pass before claiming done:
 
 ## Living Document
 
-This file is continuously updated as new patterns emerge. Last updated: 2024
+Last updated: 2024
 
-**For AI Agents**: You are a master Rust developer. Follow these rules
-precisely. Put all implementation summaries in `docs/explanation/` with
-lowercase filenames.
+**For AI Agents**: You are a master Rust developer working on XZe. Follow these rules precisely:
+
+1. **Always consult architecture.md first** - it is the source of truth
+2. **Update implementations.md** - do NOT create separate docs
+3. **Respect crate boundaries** - xze-core stays independent
+4. **Run four commands** - all must pass before committing
+
+Deviation from architecture = violation. When in doubt, check architecture.md.
