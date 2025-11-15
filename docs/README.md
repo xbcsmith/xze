@@ -1,169 +1,186 @@
 # XZe Documentation
 
-Welcome to the XZe Pipeline Documentation Tool documentation. This documentation follows the [Diátaxis framework](https://diataxis.fr/), organizing content into four distinct categories based on your needs.
+Welcome to the XZe documentation. This documentation follows the [Diátaxis framework](https://diataxis.fr/), organizing content into four distinct categories based on your needs.
+
+## What is XZe?
+
+XZe is an AI-powered documentation generation tool that automatically creates and maintains Diátaxis-structured documentation for your code repositories.
+
+### Key Features
+
+- **API-First Design**: REST API (`xze-serve`) as the primary interface
+- **Event-Driven**: Automatically triggered by webhooks (GitHub/GitLab) or Kafka events
+- **AI-Powered**: Uses Ollama models to intelligently analyze code and generate documentation
+- **Diátaxis Framework**: Organizes documentation into tutorials, how-tos, explanations, and reference
+- **Git Integration**: Automatically creates pull requests with generated documentation
+- **Multi-Repository**: Manage documentation for multiple codebases simultaneously
 
 ## Documentation Structure
 
+This documentation is organized following the Diátaxis framework:
+
 ```text
 docs/
-├── README.md                    # This file
-├── tutorials/                   # Learning-oriented guides
-├── how_to/                      # Problem-solving guides
-├── explanation/                 # Understanding-oriented discussion
-└── reference/                   # Information-oriented specifications
+├── README.md              # This file - navigation and overview
+├── tutorials/             # Learning-oriented: step-by-step lessons
+├── how_to/                # Goal-oriented: problem-solving recipes
+├── explanation/           # Understanding-oriented: conceptual discussion
+└── reference/             # Information-oriented: technical specifications
 ```
 
 ## Quick Navigation
 
-### I want to learn XZe
+### 📚 [Tutorials](tutorials/) - Learn XZe
 
-Start with **[Tutorials](tutorials/)** - Step-by-step lessons that teach you how to use XZe through hands-on practice.
+**Learning-oriented guides** that take you by the hand through XZe step-by-step.
 
-Coming soon:
+Start here if you're new to XZe.
 
-- Getting Started with XZe
-- Your First Documentation Generation
-- Setting Up Auto-Mode
+- Getting started with XZe (coming soon)
+- Your first documentation generation (coming soon)
+- Working with events and webhooks (coming soon)
+- Deploying XZe to production (coming soon)
 
-### I want to solve a problem
+### 🔧 [How-To Guides](how_to/) - Solve Problems
 
-Check **[How-To Guides](how_to/)** - Task-oriented instructions for accomplishing specific goals.
+**Task-oriented recipes** for accomplishing specific goals with XZe.
 
-Coming soon:
+Use these when you know what you want to achieve.
 
-- How to Install XZe
-- How to Configure Multiple Repositories
-- How to Deploy XZe in Production
-- How to Troubleshoot Common Issues
+- Configure webhooks for GitHub/GitLab (coming soon)
+- Set up Kafka event streaming (coming soon)
+- Customize AI models and generation (coming soon)
+- Deploy to Kubernetes (coming soon)
+- Monitor XZe in production (coming soon)
 
-### I want to understand the system
+### 💡 [Explanation](explanation/) - Understand the System
 
-Read **[Explanation](explanation/)** - Conceptual discussion that clarifies and illuminates topics.
+**Conceptual discussion** that clarifies and illuminates XZe's design and decisions.
 
-Available now:
+Read these to deepen your understanding of how and why XZe works.
 
-- [Project Status Summary](explanation/project_status_summary.md) - Current state and progress
-- [Implementation Roadmap](explanation/implementation_roadmap.md) - Detailed phased development plan
-- [Phase Overview](explanation/phase_overview.md) - Visual timeline and milestones
+- [Implementation Log](explanation/implementations.md) - Chronological record of all implementations
+- Architecture decision records (coming soon)
+- Design rationale for major features (coming soon)
+- AI-powered documentation generation concepts (coming soon)
+- Event-driven architecture explained (coming soon)
 
-Coming soon:
+### 📖 [Reference](reference/) - Look Things Up
 
-- Architecture Overview
-- Design Decisions
-- Diátaxis Framework Application
-- AI Integration Strategy
+**Technical specifications** and precise information about XZe's components.
 
-### I want to look something up
+Consult these for detailed technical information.
 
-See **[Reference](reference/)** - Technical specifications and API documentation.
+- [Architecture Specification](reference/architecture.md) - **Complete system architecture (START HERE)**
+- API reference documentation (coming soon)
+- Configuration reference (coming soon)
+- CLI command reference (coming soon)
+- Data models and schemas (coming soon)
 
-Coming soon:
+## Getting Started
 
-- CLI Command Reference
-- Configuration Schema
-- API Reference
-- Template Reference
+### For First-Time Users
 
-## What is XZe?
+1. **Read the architecture**: Start with [architecture.md](reference/architecture.md) to understand XZe's design
+2. **Follow a tutorial**: Complete a hands-on tutorial (coming soon)
+3. **Refer as needed**: Use how-to guides and reference docs when you need them
 
-XZe is a tool written in Rust that uses open source models from Ollama to analyze a service's source code and documentation in the service git repository and creates documentation for the project. The tool uses the Diátaxis Documentation Framework as the documentation layout.
+### For Developers and Contributors
 
-### Key Features
+1. **Read AGENTS.md**: See [AGENTS.md](../AGENTS.md) for development guidelines
+2. **Review architecture**: Study [architecture.md](reference/architecture.md) thoroughly
+3. **Check implementations**: Review [implementations.md](explanation/implementations.md) for current progress
 
-- **Multi-language Support**: Analyze Rust, Go, Python, JavaScript, Java, and more
-- **AI-Powered**: Leverages Ollama and LLMs for intelligent documentation generation
-- **Diátaxis Framework**: Organizes documentation into tutorials, how-tos, explanation, and reference
-- **Git Integration**: Automatically creates pull requests with generated documentation
-- **Multiple Modes**: CLI, server, and VSCode extension
-- **Auto-Mode**: Monitors repositories and updates documentation automatically
+## Understanding the Diátaxis Framework
+
+XZe's documentation follows [Diátaxis](https://diataxis.fr/), which organizes documentation into four distinct types:
+
+| Type              | Purpose         | Question Answered         | Focus                    |
+| ----------------- | --------------- | ------------------------- | ------------------------ |
+| **Tutorials**     | Learning        | "Can you teach me to...?" | Teaching through doing   |
+| **How-To Guides** | Problem-solving | "How do I...?"            | Achieving specific goals |
+| **Explanation**   | Understanding   | "Why...?"                 | Context and background   |
+| **Reference**     | Information     | "What is...?"             | Facts and specifications |
+
+This structure ensures documentation serves its actual purpose rather than trying to be all things at once.
+
+## Architecture Overview
+
+XZe is built with a modular, API-first architecture:
+
+```text
+xze (binary)
+├── xze-cli         CLI interface (pure API client)
+├── xze-serve       REST API server (primary interface)
+├── xze-sdk         Dual interface (HTTP client + direct API)
+└── xze-core        Core business logic (no interface dependencies)
+```
+
+**Event Sources**:
+
+- GitHub/GitLab webhooks
+- Kafka/Redpanda message streaming
+
+**Processing**:
+
+- AI analysis using Ollama models
+- Diátaxis-structured documentation generation
+- Automatic Git operations and PR creation
+
+For complete details, see [architecture.md](reference/architecture.md).
 
 ## Project Status
 
-**Current Status**: Foundation complete, core implementation in progress (40-50% complete)
+**Current Phase**: Architecture defined, implementation in progress
 
-See [Project Status Summary](explanation/project_status_summary.md) for detailed current state.
+See [implementations.md](explanation/implementations.md) for detailed implementation history.
 
 ## Contributing
 
 We welcome contributions! Please see:
 
-- [AGENTS.md](../AGENTS.md) - Guidelines for working on this project
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute (coming soon)
+- [AGENTS.md](../AGENTS.md) - **Required reading** for all AI agents and developers
+- [Architecture](reference/architecture.md) - **Canonical source of truth** for system design
+- [Implementations Log](explanation/implementations.md) - Record of all implementations
 
-## Documentation Philosophy
+### Documentation Guidelines
 
-This documentation follows the Diátaxis framework, which recognizes that documentation serves different purposes:
+When contributing documentation:
 
-### Tutorials (Learning-oriented)
-
-- Take the user by the hand through a series of steps
-- Help beginners get started
-- Provide a learning experience
-- Focus on teaching through doing
-
-### How-To Guides (Problem-oriented)
-
-- Guide the reader through solving a real-world problem
-- Assume some knowledge and experience
-- Focus on achieving a specific outcome
-- Are recipes for accomplishing tasks
-
-### Explanation (Understanding-oriented)
-
-- Clarify and illuminate a particular topic
-- Provide background and context
-- Discuss alternatives and design decisions
-- Deepen understanding of the system
-
-### Reference (Information-oriented)
-
-- State facts and describe the machinery
-- Be accurate and complete
-- Provide technical specifications
-- Are consulted for specific information
+- **Categorize correctly**: Use the Diátaxis decision tree
+- **Follow conventions**: lowercase_with_underscores.md for filenames (except README.md)
+- **Update logs**: Append implementation summaries to [implementations.md](explanation/implementations.md)
+- **Link appropriately**: Cross-reference between documentation types
+- **No emojis in files**: Keep documentation accessible and professional
 
 ## Getting Help
 
 - **GitHub Issues**: Report bugs and request features
-- **Discussions**: Ask questions and share ideas
 - **Documentation Issues**: Report unclear or missing documentation
+- **Architecture Questions**: Consult [architecture.md](reference/architecture.md) first
 
 ## Related Resources
 
-### Architecture and Requirements
-
-- [XZe Architecture](xze-architecture.md) - Detailed architectural design
-- [XZe Requirements](xze-prompt.md) - Original project requirements
-
-### External Resources
+### External Documentation
 
 - [Diátaxis Framework](https://diataxis.fr/) - Documentation framework we follow
 - [Ollama](https://ollama.ai/) - AI model platform we use
-- [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) - Coding standards
+- [Rust Documentation](https://doc.rust-lang.org/) - Rust programming language
+
+### Project Files
+
+- [AGENTS.md](../AGENTS.md) - AI agent development guidelines
+- [PLAN.md](../PLAN.md) - Project planning guidelines (if exists)
+- [Cargo.toml](../Cargo.toml) - Rust workspace configuration
 
 ## About This Documentation
 
-**Last Updated**: 2024
+**Last Updated**: 2025-01-07
 
-**Status**: In active development
+**Framework**: [Diátaxis](https://diataxis.fr/)
 
-This documentation is itself a living example of the Diátaxis framework that XZe implements. As we build XZe, we're simultaneously building the documentation that demonstrates its capabilities.
+This documentation is itself an example of the Diátaxis framework that XZe implements. As XZe evolves, this documentation grows with it, demonstrating best practices for structured technical documentation.
 
-### Documentation Conventions
+---
 
-- **Filenames**: All lowercase with underscores (except README.md)
-- **Format**: Markdown (.md extension)
-- **Code Blocks**: Always specify language for syntax highlighting
-- **Links**: Use relative paths within documentation
-- **No Emojis**: Keep documentation professional and accessible
-
-### Feedback
-
-Found an issue with the documentation? Please:
-
-1. Check if it's already reported in GitHub Issues
-2. Create a new issue with the `documentation` label
-3. Be specific about what's unclear or missing
-4. Suggest improvements if you have ideas
-
-Thank you for using XZe!
+**Ready to start?** Begin with the [Architecture Specification](reference/architecture.md) to understand XZe's complete design.
