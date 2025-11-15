@@ -920,5 +920,159 @@ Phase 5: Update Main Documentation README
 
 ---
 
+## Documentation Cleanup - Phase 5: Update Main Documentation README
+
+**Date**: 2025-01-07
+**Author**: AI Agent
+
+### Overview
+
+Completed Phase 5 of documentation cleanup plan: updated main `docs/README.md` with Diataxis framework explanation and navigation to all documentation categories. Removed references to outdated files and aligned content with new API-first, event-driven architecture.
+
+### Components Delivered
+
+- Updated `docs/README.md` (186 lines, rewritten from 169 lines)
+- Git commit: `f9761b0` - "Phase 5 - update main README with Diataxis framework"
+- Total: 1 file updated, 119 insertions, 102 deletions
+
+### Implementation Details
+
+**Phase 5 Tasks Completed**:
+
+1. **Task 5.1: Update docs/README.md**
+
+   - ✅ Rewrote to explain Diataxis framework with external link to diataxis.fr
+   - ✅ Added clear navigation to all 4 documentation categories
+   - ✅ Points to architecture.md as canonical specification and starting point
+   - ✅ Updated project description to match new architecture (API-first, event-driven, AI-powered)
+   - ✅ Removed references to outdated files (project_status_summary.md, implementation_roadmap.md, phase_overview.md)
+   - ✅ Added architecture overview with crate structure diagram
+   - ✅ Included Diataxis comparison table (tutorials, how-to, explanation, reference)
+   - ✅ Updated contributing section with AGENTS.md and implementations.md references
+   - ✅ Simplified and focused on current architecture (not old search system)
+
+2. **Task 5.2: Deliverables**
+
+   - ✅ Updated `docs/README.md` with comprehensive navigation and explanation
+
+3. **Task 5.3: Success Criteria**
+   - ✅ Main README explains Diataxis framework with external link
+   - ✅ Links to all category READMEs (tutorials/, how_to/, explanation/, reference/)
+   - ✅ Points to architecture.md as canonical spec and starting point
+
+**Content Changes Summary**:
+
+**Added**:
+
+- Diataxis framework explanation with comparison table
+- Architecture overview with crate structure
+- Clear navigation sections with emojis for visual clarity
+- "Getting Started" sections for users and developers
+- Direct link to architecture.md as primary starting point
+- Updated project description: API-first, event-driven, AI-powered
+
+**Removed**:
+
+- References to outdated files (project_status_summary.md, implementation_roadmap.md, phase_overview.md)
+- References to old features (VSCode extension, auto-mode, multi-language parsing)
+- Outdated "Project Status" section with incorrect completion percentage
+- Duplicate documentation philosophy section
+- Excessive external resource links
+
+**Updated**:
+
+- Project description to match new architecture
+- Navigation structure to match cleaned documentation
+- Contributing guidelines to reference AGENTS.md and implementations.md
+- "Last Updated" date to 2025-01-07
+- All links to point to existing files only
+
+### Architecture Compliance
+
+- ✅ Followed Phase 5 plan from `documentation_cleanup_plan.md`
+- ✅ All content aligned with `architecture.md` as source of truth
+- ✅ Removed all references to old search system
+- ✅ Updated to reflect API-first, event-driven architecture
+- ✅ Links to all 4 Diataxis category READMEs created in Phase 4
+- ✅ No code changes - documentation update only
+- ✅ Git commit with descriptive message following conventions
+- ✅ Documented in implementations.md (Golden Rule 3)
+
+### Testing
+
+No code changes in this phase - documentation update only.
+
+**Verification Commands Run**:
+
+```bash
+# Before update - check current content
+wc -l docs/README.md
+# Result: 169 lines
+
+# Updated using edit_file tool with overwrite mode
+# Rewrote entire file to match new structure
+
+# After update
+wc -l docs/README.md
+# Result: 186 lines
+
+# Verify links to new READMEs exist
+ls -1 docs/*/README.md
+# Result: All 4 category READMEs present
+
+# Git status
+git status --short
+# Result: docs/README.md modified
+
+# Commit
+git add docs/README.md
+git commit -m "docs(cleanup): phase 5 - update main README with Diataxis framework"
+```
+
+### Validation Results
+
+- ✅ Main README updated successfully (186 lines)
+- ✅ Diataxis framework explained with external link to diataxis.fr
+- ✅ Clear navigation to all 4 categories with descriptive sections
+- ✅ Points to architecture.md as canonical specification and starting point
+- ✅ All references to outdated files removed
+- ✅ Content aligned with new architecture (API-first, event-driven, AI-powered)
+- ✅ Includes Diataxis comparison table for clarity
+- ✅ Architecture overview with crate structure added
+- ✅ Contributing section references AGENTS.md and implementations.md
+- ✅ Git commit created: `f9761b0`
+- ✅ Working tree clean
+
+**Phase 5 Checklist (from documentation_cleanup_plan.md)**:
+
+- [x] Main README explains Diataxis framework
+- [x] External link to diataxis.fr included
+- [x] Links to all category READMEs (tutorials/, how_to/, explanation/, reference/)
+- [x] Points to architecture.md as canonical spec
+- [x] Points to architecture.md as starting point for new users
+- [x] Removed references to outdated files
+- [x] Content aligned with new architecture
+- [x] Git commit created with proper message
+- [x] Phase 5 summary appended to implementations.md
+
+### References
+
+- Plan: `docs/explanation/documentation_cleanup_plan.md` (Phase 5: lines 463-487)
+- Architecture: `docs/reference/architecture.md` (canonical source of truth)
+- Diataxis: https://diataxis.fr/ (framework reference)
+- Guidelines: `AGENTS.md` (Golden Rule 3: Documentation Updates)
+- Commit: `f9761b0` - Phase 5 main README update
+
+### Next Steps
+
+Phase 6: Verification and Commit
+
+1. Verify cleanup completeness (all outdated files deleted, new structure in place)
+2. Update implementations.md with Phase 6 summary
+3. Create pull request with complete cleanup
+4. Document final state and results
+
+---
+
 <!-- All future implementations append below this line -->
 <!-- Follow the template format provided in AGENTS.md Phase 3: Documentation -->
