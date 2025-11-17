@@ -51,6 +51,159 @@ Initial project structure established. Test infrastructure to be added with firs
 
 ---
 
+## AI Provider Abstraction Refactoring Plan
+
+**Date**: 2025-01-20
+**Author**: AI Planning Agent
+
+### Overview
+
+Created comprehensive phased implementation plan to refactor XZe's AI integration from Ollama-only to multi-provider abstraction layer supporting OpenAI, Anthropic, GitHub Copilot, and Ollama. This plan transforms `xze-core/src/ai` from Ollama-specific implementation to provider-agnostic system through unified interfaces.
+
+### Components Planned
+
+- **Phase 1: Core Abstractions** (~700 LOC + 200 tests)
+
+  - `crates/core/src/ai/providers/base.rs` - Provider trait interface
+  - `crates/core/src/ai/providers/types.rs` - Unified message/tool/response types
+  - `crates/core/src/ai/providers/errors.rs` - Provider error types
+  - `crates/core/src/ai/providers/config.rs` - Configuration structures
+
+- **Phase 2: HTTP Client Infrastructure** (~1,250 LOC + 400 tests)
+
+  - `crates/core/src/ai/providers/api_client.rs` - Generic HTTP client
+  - `crates/core/src/ai/providers/retry.rs` - Exponential backoff retry logic
+  - `crates/core/src/ai/providers/formats/openai.rs` - OpenAI request/response formatters
+  - `crates/core/src/ai/providers/formats/anthropic.rs` - Anthropic formatters
+
+- **Phase 3: Provider Implementations** (~2,100 LOC + 600 tests)
+
+  - `crates/core/src/ai/providers/ollama.rs` - Ollama adapter (backward compatible)
+  - `crates/core/src/ai/providers/openai.rs` - OpenAI provider
+  - `crates/core/src/ai/providers/anthropic.rs` - Anthropic provider
+  - `crates/core/src/ai/providers/copilot.rs` - GitHub Copilot provider
+  - `crates/core/src/ai/providers/oauth.rs` - OAuth device flow utilities
+
+- **Phase 4: Streaming Support** (~950 LOC + 300 tests)
+
+  - `crates/core/src/ai/providers/streaming.rs` - Streaming interfaces
+  - `crates/core/src/ai/providers/sse_parser.rs` - Server-Sent Events parser
+  - Streaming methods for all four providers
+
+- **Phase 5: Factory and Configuration** (~700 LOC + 200 tests)
+
+  - `crates/core/src/ai/providers/factory.rs` - Provider factory pattern
+  - `crates/core/src/ai/providers/registry.rs` - Provider registry
+  - `crates/core/src/ai/providers/metadata.rs` - Provider metadata
+  - Updated `crates/core/src/config.rs` - Multi-provider configuration
+
+- **Phase 6: CLI Integration** (~400 LOC + 300 tests)
+  - Updated CLI commands with `--provider` flag
+  - `crates/cli/src/commands/provider.rs` - Provider management commands
+  - Documentation updates in `docs/how_to/` and `docs/reference/`
+
+**Total Estimated**: ~6,100 LOC implementation + ~2,000 LOC tests = ~8,100 LOC
+
+### Implementation Details
+
+**Phased Approach Benefits**:
+
+1. Each phase independently testable and mergeable
+2. Zero breaking changes until Phase 6 (opt-in)
+3. Backward compatibility maintained throughout
+4. Ollama functionality preserved as default
+
+**Key Design Decisions**:
+
+- Provider trait uses `async_trait` for async methods
+- Unified message format supports all provider features (superset approach)
+- Error types map to existing `XzeError` variants
+- Configuration supports YAML with environment variable substitution
+- Factory pattern enables runtime provider switching
+- Streaming uses `futures::Stream` for ecosystem compatibility
+
+**Provider Comparison**:
+
+- **OpenAI**: Bearer auth, 128K context, native function calling
+- **Anthropic**: API key header, 200K context, tool use blocks in content array
+- **GitHub Copilot**: OAuth device flow, OpenAI-compatible API
+- **Ollama**: No auth, local deployment, model-dependent context limits
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.3 (Service Layer)
+- ✅ Respected crate boundaries (xze-core → NO deps on cli/serve)
+- ✅ Provider abstraction in `xze-core/src/ai/providers/`
+- ✅ Configuration extends existing `xze.yaml` schema
+- ✅ Maintains API-first, event-driven architecture principles
+- ✅ No modifications to interface layers until Phase 6
+- ✅ Backward compatibility with existing `OllamaClient` usage
+
+### Testing Strategy
+
+**Unit Tests** (>80% coverage per phase):
+
+- Type serialization/deserialization
+- Error type conversions
+- Request/response formatting for each provider
+- Retry logic with various failure patterns
+- Configuration loading and validation
+- Provider metadata accuracy
+
+**Integration Tests**:
+
+- Mock HTTP server for each provider
+- End-to-end completion requests
+- Streaming responses with chunk accumulation
+- Tool calling workflows
+- Provider switching at runtime
+
+**Manual Testing Checklist**:
+
+- OpenAI/Anthropic/Ollama completion requests
+- GitHub Copilot OAuth flow
+- Streaming output from all providers
+- CLI commands with different providers
+- Error scenarios (invalid keys, rate limits)
+- Backward compatibility verification
+
+### Validation Results
+
+**Planning Phase Complete**:
+
+- ✅ Comprehensive 6-phase implementation plan created
+- ✅ All deliverables defined per phase
+- ✅ Success criteria established for each phase
+- ✅ Risk assessment completed
+- ✅ Backward compatibility strategy defined
+- ✅ Testing strategy comprehensive
+- ✅ Documentation requirements identified
+- ✅ Timeline estimated (6-8 weeks for 1 developer)
+
+**Quality Gates Defined**:
+
+- Each phase must pass: `cargo fmt`, `cargo check`, `cargo clippy`, `cargo test`
+- Test coverage >80% per module
+- No regressions in existing functionality
+- Documentation updated per phase
+
+### References
+
+- Implementation Plan: `docs/explanation/ai_provider_refactoring_plan.md`
+- Quick Reference: `docs/explanation/provider_abstraction_quick_reference.md`
+- Architecture: `docs/reference/architecture.md` Section 2.3
+- Provider APIs: OpenAI, Anthropic, GitHub Copilot, Ollama documentation
+
+### Next Steps
+
+1. Review plan with project maintainers
+2. Approve Phase 1 scope and deliverables
+3. Create feature branch `pr-ai-provider-abstraction-phase1`
+4. Begin implementation of Phase 1: Core Abstractions
+5. Iterate through phases with PR review between each
+
+---
+
 ## Architecture Refactoring to API-First, Event-Driven Design
 
 **Date**: 2025-01-07
