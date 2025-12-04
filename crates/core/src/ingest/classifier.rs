@@ -209,7 +209,7 @@ JSON Response:"#,
         })?;
 
         // Clamp confidence to [0, 1]
-        let confidence = raw.confidence.max(0.0).min(1.0);
+        let confidence = raw.confidence.clamp(0.0, 1.0);
 
         Ok(ClassificationResult {
             diataxis_type,
