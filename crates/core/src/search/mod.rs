@@ -27,5 +27,7 @@
 //! ```
 
 pub mod embedding_cache;
+pub mod hybrid;
 
 pub use embedding_cache::EmbeddingCache;
+pub use hybrid::{HybridSearcher, SearchQuery, SearchResult};
