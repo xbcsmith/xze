@@ -1822,3 +1822,55 @@ test result: ok. 9 passed; 0 failed
 
 - Phase 2: Implement Hybrid Search and Multi-Stage Retrieval
 - Integrate real embedding provider in pipeline
+
+---
+
+## Phase 2: Hybrid Search Implementation
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 2, Task 2.1
+
+### Overview
+
+Implemented the hybrid search capability combining vector similarity search (pgvector) and full-text search (BM25) using Reciprocal Rank Fusion (RRF). This provides a robust retrieval mechanism that captures both semantic meaning and exact keyword matches.
+
+### Components Delivered
+
+- `crates/core/src/storage/postgres.rs` - Added `search_hybrid` method with SQL-based RRF
+- `crates/core/src/search/mod.rs` - Created search module
+- `crates/core/src/search/hybrid.rs` - Implemented `HybridSearcher` and `SearchQuery`
+
+### Implementation Details
+
+**Hybrid Search Logic (SQL)**:
+- Uses a Common Table Expression (CTE) to perform two parallel searches:
+  1. **Vector Search**: Uses cosine distance (`<=>`) to find semantically similar documents.
+  2. **Text Search**: Uses `ts_rank` and `plainto_tsquery` for keyword matching.
+- **Reciprocal Rank Fusion (RRF)**:
+  - Combines results using the formula: `score = 1/(k + vector_rank) + 1/(k + text_rank)`
+  - `k` is set to 60 (standard practice).
+  - Handles cases where a document appears in only one of the result sets.
+- **Efficiency**: Performed entirely within PostgreSQL to minimize data transfer.
+
+**HybridSearcher**:
+- High-level interface for search operations.
+- Generates embeddings for the search query (currently mock, ready for provider).
+- Delegates the heavy lifting to the optimized SQL query.
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.3 (Search Pipeline)
+- ✅ Implemented "Hybrid Search (BM25 + Vector)" as specified in the plan.
+
+### Testing
+
+Unit tests passing:
+- `test_hybrid_searcher_creation`
+- `test_search_query_default`
+
+### Next Steps
+
+- Phase 2, Task 2.2: LLM Reranking
+- Phase 2, Task 2.3: Context Expansion
+
