@@ -372,6 +372,75 @@ impl PostgresStorage {
         Ok(documents)
     }
 
+    /// Get surrounding chunks for context expansion
+    ///
+    /// # Arguments
+    ///
+    /// * `source_file` - Source file path
+    /// * `chunk_index` - Center chunk index
+    /// * `window` - Number of chunks before and after to fetch
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use xze_core::storage::PostgresStorage;
+    /// # let storage = PostgresStorage::new("postgresql://localhost/xze").await?;
+    /// let chunks = storage.get_surrounding_chunks("test.md", 5, 1).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn get_surrounding_chunks(
+        &self,
+        source_file: &str,
+        chunk_index: i32,
+        window: i32,
+    ) -> Result<Vec<Document>, StorageError> {
+        let start_index = (chunk_index - window).max(0);
+        let end_index = chunk_index + window;
+
+        let rows = sqlx::query(
+            r#"
+            SELECT id, source_file, content, chunk_index, total_chunks,
+                   diataxis_type, chunk_strategy, title, category, code_blocks,
+                   created_at, updated_at
+            FROM documents
+            WHERE source_file = $1 AND chunk_index BETWEEN $2 AND $3
+            ORDER BY chunk_index
+            "#,
+        )
+        .bind(source_file)
+        .bind(start_index)
+        .bind(end_index)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut documents = Vec::new();
+        for row in rows {
+            let diataxis_type: Option<String> = row.try_get("diataxis_type")?;
+            let diataxis_type = diataxis_type.and_then(|s| s.parse::<DiataxisType>().ok());
+
+            documents.push(Document {
+                id: row.try_get("id")?,
+                source_file: row.try_get("source_file")?,
+                content: row.try_get("content")?,
+                embedding: None,
+                chunk_index: row.try_get("chunk_index")?,
+                total_chunks: row.try_get("total_chunks")?,
+                diataxis_type,
+                chunk_strategy: row.try_get("chunk_strategy")?,
+                title: row.try_get("title")?,
+                category: row.try_get("category")?,
+                keywords: Vec::new(),
+                code_blocks: row.try_get("code_blocks")?,
+                created_at: row.try_get("created_at")?,
+                updated_at: row.try_get("updated_at")?,
+            });
+        }
+
+        Ok(documents)
+    }
+
     /// Delete all documents from a source file
     ///
     /// # Arguments
