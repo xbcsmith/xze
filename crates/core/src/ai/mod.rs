@@ -12,6 +12,7 @@ pub mod intent_classifier;
 pub mod intent_types;
 pub mod metrics;
 pub mod prompts;
+pub mod providers;
 pub mod validator;
 
 pub use client::{GenerateOptions, GenerateRequest, OllamaClient};
