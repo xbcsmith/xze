@@ -6,6 +6,7 @@
 
 pub mod ab_testing;
 pub mod ai;
+pub mod auth;
 pub mod change_detector;
 pub mod config;
 pub mod document_enrichment;
@@ -22,6 +23,7 @@ pub mod quality_validator;
 pub mod repository;
 pub mod search;
 pub mod semantic;
+pub mod storage;
 pub mod types;
 pub mod watcher;
 

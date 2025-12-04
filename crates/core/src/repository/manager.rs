@@ -471,17 +471,16 @@ pub struct RepositoryManagerStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DocumentationRepoConfig, RepositoryConfig};
+    use crate::config::XzeConfig;
     use std::fs;
     use tempfile::TempDir;
-    use url::Url;
 
     #[tokio::test]
     async fn test_repository_manager_creation() {
         let temp_dir = TempDir::new().unwrap();
         let config = XzeConfig::default();
 
-        let manager = RepositoryManager::new(temp_dir.path().to_path_buf(), config).unwrap();
+        let _manager = RepositoryManager::new(temp_dir.path().to_path_buf(), config).unwrap();
         assert!(temp_dir.path().exists());
     }
 

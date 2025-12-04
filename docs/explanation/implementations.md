@@ -82,7 +82,8 @@ Created comprehensive phased implementation plan to refactor XZe's AI integratio
   - `crates/core/src/ai/providers/openai.rs` - OpenAI provider
   - `crates/core/src/ai/providers/anthropic.rs` - Anthropic provider
   - `crates/core/src/ai/providers/copilot.rs` - GitHub Copilot provider
-  - `crates/core/src/ai/providers/oauth.rs` - OAuth device flow utilities
+  - `crates/core/src/ai/providers/copilot_token.rs` - Token management
+  - `crates/core/src/ai/providers/copilot_config.rs` - Config file parsing
 
 - **Phase 4: Streaming Support** (~950 LOC + 300 tests)
 
@@ -126,8 +127,18 @@ Created comprehensive phased implementation plan to refactor XZe's AI integratio
 
 - **OpenAI**: Bearer auth, 128K context, native function calling
 - **Anthropic**: API key header, 200K context, tool use blocks in content array
-- **GitHub Copilot**: OAuth device flow, OpenAI-compatible API
+- **GitHub Copilot**: GitHub OAuth token + API token exchange (reads from `~/.config/github-copilot/hosts.json`), OpenAI-compatible API
 - **Ollama**: No auth, local deployment, model-dependent context limits
+
+**GitHub Copilot Authentication** (Updated based on Zed implementation):
+
+- XZe does NOT implement OAuth device flow itself
+- Users must authenticate via GitHub Copilot CLI/LSP first (one-time setup)
+- OAuth token stored in `~/.config/github-copilot/hosts.json` by external tools
+- XZe reads OAuth token from config file (same approach as Zed editor)
+- Two-step flow: OAuth token → exchange for API token → use for completions
+- API tokens are short-lived (~30 min), automatically refreshed
+- Alternative: `GH_COPILOT_TOKEN` environment variable for CI/containers
 
 ### Architecture Compliance
 
@@ -161,7 +172,7 @@ Created comprehensive phased implementation plan to refactor XZe's AI integratio
 **Manual Testing Checklist**:
 
 - OpenAI/Anthropic/Ollama completion requests
-- GitHub Copilot OAuth flow
+- GitHub Copilot token exchange and refresh
 - Streaming output from all providers
 - CLI commands with different providers
 - Error scenarios (invalid keys, rate limits)
@@ -193,6 +204,7 @@ Created comprehensive phased implementation plan to refactor XZe's AI integratio
 - Quick Reference: `docs/explanation/provider_abstraction_quick_reference.md`
 - Architecture: `docs/reference/architecture.md` Section 2.3
 - Provider APIs: OpenAI, Anthropic, GitHub Copilot, Ollama documentation
+- Zed Copilot Implementation: Reference for GitHub Copilot token management pattern
 
 ### Next Steps
 
@@ -1585,3 +1597,79 @@ The deleted files documented a search-based system with semantic chunking, inten
 
 <!-- All future implementations append below this line -->
 <!-- Follow the template format provided in AGENTS.md Phase 3: Documentation -->
+
+---
+
+## Phase 1: PostgreSQL Storage Foundation
+
+**Date**: 2025-12-03
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 1, Task 1.1
+
+### Overview
+
+Implemented the foundational storage layer for the RAG architecture using PostgreSQL with pgvector extension. This provides the core infrastructure for storing document chunks with vector embeddings and Diataxis classification.
+
+### Components Delivered
+
+- `crates/core/src/storage/mod.rs` (8 lines) - Storage module entry point
+- `crates/core/src/storage/models.rs` (209 lines) - Data models for Document and DiataxisType
+- `crates/core/src/storage/postgres.rs` (322 lines) - PostgreSQL storage implementation
+- `crates/core/migrations/20231201000001_create_documents_table.sql` (62 lines) - Database schema
+- `crates/core/Cargo.toml` - Added pgvector dependency and sqlx features
+
+### Implementation Details
+
+**Database Schema**:
+- Created `documents` table with pgvector support for 1536-dimensional embeddings
+- HNSW index for fast vector similarity search (cosine distance)
+- GIN index for full-text search (BM25)
+- Support for Diataxis classification (tutorial, howto, reference, explanation)
+- Automatic timestamp management with triggers
+
+**Rust Implementation**:
+- `DiataxisType` enum with sqlx integration
+- `Document` struct with builder pattern
+- `PostgresStorage` with connection pooling
+- Vector search by embedding (cosine similarity)
+- Filter by Diataxis type
+- CRUD operations for document management
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.1 (Storage Layer)
+- ✅ Followed `docs/explanation/rag_architecture_refactoring_plan.md` Phase 1, Task 1.1
+- ✅ Respected crate boundaries (xze-core has no interface dependencies)
+- ✅ Used exact type names and structure from architecture
+
+### Testing
+
+Unit tests included for:
+- `DiataxisType` parsing and display
+- Document builder pattern
+- Basic model validation
+
+Integration tests require PostgreSQL instance (deferred to later phase).
+
+```text
+test result: ok. 3 passed; 0 failed
+```
+
+### Validation Results
+
+- ✅ `cargo fmt --all` passed
+- ✅ `cargo check --package xze-core --lib` passed
+- ✅ All public functions have `///` doc comments with examples
+- ✅ Proper error handling with `thiserror`
+
+### References
+
+- Architecture: `docs/reference/architecture.md` Section 2.1
+- Implementation Plan: `docs/explanation/rag_architecture_refactoring_plan.md` Phase 1
+
+### Next Steps
+
+- Phase 1, Task 1.2: Implement DiataxisClassifier using AI providers
+- Phase 1, Task 1.3: Implement ChunkingStrategyManager
+- Phase 1, Task 1.4: Integration tests with testcontainers
+

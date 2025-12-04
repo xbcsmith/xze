@@ -54,7 +54,7 @@ cargo test --all-features
 - [ ] Data structures match architecture.md definitions **EXACTLY**
 - [ ] Module placement follows architecture structure
 - [ ] Crate boundaries respected (xze-core → NO deps on cli/serve)
-- [ ] Type names match architecture (Repository, Document, etc.)
+- [ ] Type names match architecture (Document, SearchResult, etc.)
 - [ ] Configuration format follows architecture (YAML for configs)
 - [ ] No architectural deviations without documentation
 
@@ -72,15 +72,17 @@ cargo test --all-features
 
 ## IMPLEMENTATION RULES - NEVER VIOLATE
 
-**Detailed rules for implementing code. See "Five Golden Rules" section at end for quick reference.**
+**Detailed rules for implementing code. See "Five Golden Rules" section at end
+for quick reference.**
 
 ### Implementation Rule 1: File Extensions (MOST VIOLATED)
 
-**YOU WILL GET THIS WRONG IF YOU DON'T READ CAREFULLY**
+> **YOU WILL GET THIS WRONG IF YOU DON'T READ CAREFULLY**
 
 #### Real Files vs. Documentation
 
-- **Real implementation files**: `src/**/*.rs`, `crates/**/*.rs` - actual code that compiles
+- **Real implementation files**: `src/**/*.rs`, `crates/**/*.rs` - actual code
+  that compiles
 - **Configuration files**: `.yaml`, `.toml` - runtime configuration
 - **Documentation files**: `docs/**/*.md` - explanations, references, guides
 
@@ -110,7 +112,8 @@ Per architecture.md:
 **WRONG**: Creating config files with `.yml` extension
 **RIGHT**: Using `.yaml` extension as specified in architecture
 
-**Why this is violated**: Agents see `.yml` commonly used in industry and default to it. **NO**. XZe uses `.yaml` consistently.
+**Why this is violated**: Agents see `.yml` commonly used in industry and
+default to it. **NO**. XZe uses `.yaml` consistently.
 
 **YOU MUST:**
 
@@ -125,7 +128,8 @@ Per architecture.md:
 - ❌ Use `.MD` or `.markdown` extensions
 - ❌ Create `.rs` files for code that only appears in architecture documentation
 
-**Clarification**: YAML is for configuration files (xze.yaml, docker-compose.yaml, CI/CD configs). Use `.yaml` extension consistently.
+**Clarification**: YAML is for configuration files (xze.yaml,
+docker-compose.yaml, CI/CD configs). Use `.yaml` extension consistently.
 
 ### Implementation Rule 2: Markdown File Naming (SECOND MOST VIOLATED)
 
@@ -157,7 +161,8 @@ Per architecture.md:
    docs/how_to/Setup-Monitoring.md
 ```
 
-**Why This Matters**: Inconsistent naming breaks documentation linking and makes files hard to find.
+**Why This Matters**: Inconsistent naming breaks documentation linking and makes
+files hard to find.
 
 ### Implementation Rule 3: Code Quality Gates (MUST ALL PASS)
 
@@ -211,41 +216,40 @@ cargo test --all-features
 - `docs/explanation/implementations.md` (your summary of what you built)
 - Code comments (/// doc comments in .rs files)
 
-**Rule**: Append your implementation summary to `implementations.md`. Do NOT create separate markdown files for each feature unless explicitly instructed.
+**Rule**: Append your implementation summary to `implementations.md`. Do NOT
+create separate markdown files for each feature unless explicitly instructed.
 
 **Examples:**
 
 ````rust
-/// Generates documentation for a repository using AI analysis
+/// Classifies document content into a Diataxis category
 ///
 /// # Arguments
 ///
-/// * `repo` - The repository to analyze
-/// * `config` - AI model configuration
+/// * `content` - The text content to classify
 ///
 /// # Returns
 ///
-/// Returns `Ok(Document)` with generated documentation
+/// Returns `Ok(DiataxisType)` with the determined category
 ///
 /// # Errors
 ///
-/// Returns `GenerationError::AIServiceFailed` if Ollama is unreachable
-/// Returns `GenerationError::InvalidResponse` if AI response is malformed
+/// Returns `IngestError::ProviderFailed` if AI provider fails
 ///
 /// # Examples
 ///
 /// ```
-/// use xze_core::ai::AIAnalysisService;
-/// use xze_core::repository::Repository;
+/// use xze_core::ingest::DiataxisClassifier;
+/// use xze_core::types::DiataxisType;
 ///
-/// let service = AIAnalysisService::new(config);
-/// let doc = service.generate_reference(&repo).await?;
-/// assert_eq!(doc.category, DocumentCategory::Reference);
+/// let classifier = DiataxisClassifier::new(provider);
+/// let category = classifier.classify("How to install XZe...").await?;
+/// assert_eq!(category, DiataxisType::HowTo);
 /// ```
-pub async fn generate_reference(
+pub async fn classify(
     &self,
-    repo: &Repository,
-) -> Result<Document, GenerationError> {
+    content: &str,
+) -> Result<DiataxisType, IngestError> {
     // Implementation
 }
 ````
@@ -272,20 +276,21 @@ pub async fn generate_reference(
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum RepositoryError {
-    #[error("Failed to clone repository: {0}")]
-    CloneFailed(String),
+pub enum SearchError {
+    #[error("Database query failed: {0}")]
+    DatabaseError(#[from] sqlx::Error),
 
-    #[error("Invalid repository URL: {0}")]
-    InvalidUrl(String),
+    #[error("Invalid query syntax: {0}")]
+    InvalidQuery(String),
 }
 
-pub async fn clone_repository(url: &str) -> Result<Repository, RepositoryError> {
-    let path = validate_url(url)
-        .map_err(|e| RepositoryError::InvalidUrl(e.to_string()))?;
+pub async fn search_hybrid(query: &str) -> Result<Vec<SearchResult>, SearchError> {
+    if query.is_empty() {
+        return Err(SearchError::InvalidQuery("Query cannot be empty".into()));
+    }
 
-    // Clone logic
-    Ok(repository)
+    // Search logic
+    Ok(results)
 }
 ```
 
@@ -299,10 +304,11 @@ pub async fn clone_repository(url: &str) -> Result<Repository, RepositoryError> 
 - **Type**: AI-powered documentation generator
 - **Language**: Rust (latest stable)
 - **Key Features**:
-  - **AI-Powered Analysis**: Uses Ollama for intelligent code analysis
-  - **Diataxis Framework**: Structured documentation (Reference, How-To, Explanation, Tutorial)
-  - **Git Integration**: Automatic PR creation, change detection, CI/CD hooks
-  - **Multi-Repository Support**: Analyzes and documents multiple codebases
+  - **RAG Service**: PostgreSQL + pgvector storage for semantic retrieval
+  - **Diataxis Reorganization**: Classifies and restructures documentation into
+    Diataxis framework
+  - **Multi-Stage Search**: Hybrid search (BM25+Vector), LLM Reranking, and Context Expansion
+  - **Event-Driven**: Integrates with external systems via Redpanda (Kafka)
 
 ### Architecture (Crate-Based Design)
 
@@ -324,7 +330,9 @@ xze (binary)
 - ❌ xze-core → xze-serve (NEVER - violates architecture)
 - ❌ xze-core → xze (NEVER - violates architecture)
 
-**Why This Matters**: xze-core is the domain layer. It must remain independent of interface concerns. Breaking this boundary creates circular dependencies and makes the code untestable.
+**Why This Matters**: xze-core is the domain layer. It must remain independent
+of interface concerns. Breaking this boundary creates circular dependencies and
+makes the code untestable.
 
 ---
 
@@ -500,7 +508,7 @@ test result: ok. X passed; 0 failed
 
 - Architecture: `docs/reference/architecture.md` Section X.Y
 
-````
+````markdown
 
 **Do NOT create separate markdown files unless explicitly instructed.**
 
@@ -532,7 +540,7 @@ cargo test --all-features
 # 6. Verify implementations.md updated
 git diff docs/explanation/implementations.md
 # Expected: Shows your appended summary
-````
+```
 
 **IF ANY VALIDATION FAILS: Stop and fix immediately.**
 
@@ -546,7 +554,7 @@ git diff docs/explanation/implementations.md
 
 **Examples:**
 
-```
+```text
 ✅ pr-semantic-chunking-1234
 ✅ pr-ollama-integration-5678
 ❌ PR-FEAT-1234 (uppercase)
@@ -557,7 +565,7 @@ git diff docs/explanation/implementations.md
 
 **Format:**
 
-```
+```text
 <type>(<scope>): <description>
 
 [optional body]
@@ -572,7 +580,7 @@ git diff docs/explanation/implementations.md
 
 **Examples:**
 
-```
+```text
 ✅ feat(ai): add ollama integration for code analysis
 ✅ fix(git): handle edge case in PR creation
 ✅ docs(arch): update architecture with new modules

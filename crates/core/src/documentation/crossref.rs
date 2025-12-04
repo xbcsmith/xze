@@ -11,20 +11,15 @@ pub struct CrossReferenceGenerator {
 }
 
 /// Strategy for generating cross-reference links
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum LinkStrategy {
     /// Link related documents within same category
     SameCategory,
     /// Link complementary documents across categories
+    #[default]
     Complementary,
     /// Link all related documents
     All,
-}
-
-impl Default for LinkStrategy {
-    fn default() -> Self {
-        Self::Complementary
-    }
 }
 
 impl CrossReferenceGenerator {

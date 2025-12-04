@@ -663,7 +663,7 @@ impl Default for ValidatorConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
+    use std::path::PathBuf;
 
     #[tokio::test]
     async fn test_document_validation() {
@@ -735,7 +735,7 @@ mod tests {
 
     #[test]
     fn test_validation_result_methods() {
-        let mut result = ValidationResult {
+        let result = ValidationResult {
             file_path: PathBuf::from("test.md"),
             category: Some(DiátaxisCategory::Tutorial),
             score: 0.8,
