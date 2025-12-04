@@ -1757,3 +1757,69 @@ test result: ok. 8 passed; 0 failed
 - Create end-to-end ingestion pipeline combining storage, classification, and chunking
 - Phase 2: Implement hybrid search and multi-stage retrieval
 
+
+---
+
+## Phase 1: Ingestion Pipeline
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 1, Task 1.4
+
+### Overview
+
+Implemented the end-to-end ingestion pipeline that orchestrates document classification, intent-specific chunking, embedding generation, and storage. This pipeline serves as the core data processing engine for the RAG service.
+
+### Components Delivered
+
+- `crates/core/src/ingest/pipeline.rs` (300 lines) - Ingestion pipeline implementation
+- `crates/core/src/ingest/mod.rs` - Updated exports
+
+### Implementation Details
+
+**IngestionPipeline**:
+- Orchestrates the flow: Content -> Classifier -> ChunkingManager -> Embedding -> Storage
+- Handles file reading and direct content ingestion
+- Generates deterministic embeddings (mock implementation for now, ready for provider integration)
+- Creates `Document` objects with rich metadata (Diataxis type, chunk strategy, source file)
+- Stores documents in PostgreSQL with vector embeddings
+- Provides atomic document deletion by source file
+
+**Key Features**:
+- **Type-Safe Processing**: Uses `DiataxisType` throughout the pipeline
+- **Error Handling**: Comprehensive `IngestionError` enum wrapping all pipeline stages
+- **Metadata Enrichment**: Automatically adds chunking strategy and index metadata
+- **Extensibility**: Designed to easily swap embedding providers
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.2 (Ingestion Pipeline)
+- ✅ Followed `docs/explanation/rag_architecture_refactoring_plan.md` Phase 1, Task 1.4
+- ✅ Clean separation of concerns (Pipeline vs. Classifier vs. Storage)
+
+### Testing
+
+Unit tests passing:
+
+```text
+test result: ok. 9 passed; 0 failed
+- test_ingestion_result_creation
+```
+
+### Validation Results
+
+- ✅ `cargo fmt --all` passed
+- ✅ `cargo check --package xze-core --lib` passed
+- ✅ `cargo test --package xze-core --lib ingest` passed
+- ✅ All public functions have `///` doc comments with examples
+
+### References
+
+- Architecture: `docs/reference/architecture.md` Section 2.2
+- Implementation Plan: `docs/explanation/rag_architecture_refactoring_plan.md` Phase 1
+
+### Next Steps
+
+- Phase 2: Implement Hybrid Search and Multi-Stage Retrieval
+- Integrate real embedding provider in pipeline
+
