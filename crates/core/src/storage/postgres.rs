@@ -25,6 +25,7 @@ pub enum StorageError {
 }
 
 /// PostgreSQL storage for documents with vector embeddings
+#[derive(Clone)]
 pub struct PostgresStorage {
     pool: PgPool,
 }
