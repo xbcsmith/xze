@@ -21,6 +21,7 @@ pub mod performance_profiler;
 pub mod pipeline;
 pub mod prompt_templates;
 pub mod quality_validator;
+pub mod reorg;
 pub mod repository;
 pub mod search;
 pub mod semantic;

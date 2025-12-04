@@ -1996,3 +1996,43 @@ Unit tests passing:
 
 - Phase 3: Diataxis Reorganization
 
+
+---
+
+## Phase 3: Repository Scanner
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 3, Task 3.1
+
+### Overview
+
+Implemented a repository scanner to identify documentation files for the Diataxis reorganization process. This scanner efficiently walks the directory tree, respecting ignore patterns, and collects paths to markdown files.
+
+### Components Delivered
+
+- `crates/core/src/reorg/mod.rs` - Created reorg module
+- `crates/core/src/reorg/scanner.rs` - Implemented `RepositoryScanner`
+
+### Implementation Details
+
+**RepositoryScanner**:
+- Uses `walkdir` to traverse the file system.
+- Implements `filter_entry` to efficiently skip ignored directories (e.g., `.git`, `target`, `node_modules`) without descending into them.
+- Filters for `.md` and `.markdown` files.
+- Returns a list of `PathBuf`s for further processing.
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 3 (Diataxis Reorganization)
+- ✅ Implemented "Repository Scanner" as specified in the plan.
+
+### Testing
+
+Unit tests passing:
+- `test_scan_markdown_files` (verifies file detection and ignore logic)
+
+### Next Steps
+
+- Phase 3, Task 3.2: Reorganization Planner
+
