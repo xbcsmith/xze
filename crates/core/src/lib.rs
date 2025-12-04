@@ -13,6 +13,7 @@ pub mod document_enrichment;
 pub mod documentation;
 pub mod error;
 pub mod git;
+pub mod ingest;
 pub mod kb;
 pub mod keyword_extractor;
 pub mod monitoring;
