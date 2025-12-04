@@ -1914,3 +1914,43 @@ Unit tests passing:
 
 - Phase 2, Task 2.3: Context Expansion
 
+
+---
+
+## Phase 2: Context Expansion
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 2, Task 2.3
+
+### Overview
+
+Implemented context expansion to retrieve surrounding chunks for search results. This ensures that the LLM receives sufficient context to answer queries accurately, even if the relevant information is split across chunk boundaries.
+
+### Components Delivered
+
+- `crates/core/src/storage/postgres.rs` - Added `get_surrounding_chunks` method
+- `crates/core/src/search/expansion.rs` - Implemented `ContextExpander` and `ExpandedDocument`
+- `crates/core/src/search/mod.rs` - Exported expansion components
+
+### Implementation Details
+
+**Context Expansion Logic**:
+- **Chunk Retrieval**: Queries the database for chunks within a specified window (e.g., +/- 1 chunk) of the original hit, filtered by source file.
+- **Content Merging**: Concatenates the content of the retrieved chunks to form a coherent text block.
+- **Structure**: Returns `ExpandedDocument` which preserves the original hit metadata while providing the expanded content.
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.3 (Search Pipeline)
+- ✅ Implemented "Context Expansion" as specified in the plan.
+
+### Testing
+
+Unit tests passing:
+- `test_expanded_document_structure` (verifies data structure integrity)
+
+### Next Steps
+
+- Phase 2, Task 2.4: Search Pipeline Integration
+
