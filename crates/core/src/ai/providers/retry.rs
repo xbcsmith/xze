@@ -25,14 +25,14 @@ impl RetryStrategy {
             return false;
         }
 
-        match status {
+        matches!(
+            status,
             StatusCode::TOO_MANY_REQUESTS
-            | StatusCode::INTERNAL_SERVER_ERROR
-            | StatusCode::BAD_GATEWAY
-            | StatusCode::SERVICE_UNAVAILABLE
-            | StatusCode::GATEWAY_TIMEOUT => true,
-            _ => false,
-        }
+                | StatusCode::INTERNAL_SERVER_ERROR
+                | StatusCode::BAD_GATEWAY
+                | StatusCode::SERVICE_UNAVAILABLE
+                | StatusCode::GATEWAY_TIMEOUT
+        )
     }
 
     /// Calculate the delay before the next retry attempt

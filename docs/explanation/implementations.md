@@ -1729,7 +1729,7 @@ All tests passing:
 ```text
 test result: ok. 8 passed; 0 failed
 - test_parse_classification_response
-- test_parse_classification_with_extra_text  
+- test_parse_classification_with_extra_text
 - test_classify_with_mock
 - test_tutorial_strategy_config
 - test_chunking_strategy_manager
@@ -1822,4 +1822,3 @@ test result: ok. 9 passed; 0 failed
 
 - Phase 2: Implement Hybrid Search and Multi-Stage Retrieval
 - Integrate real embedding provider in pipeline
-

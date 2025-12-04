@@ -27,13 +27,13 @@ graph TD
         API[REST API (Axum)]
         Consumer[Event Consumer]
         Producer[Event Producer]
-        
+
         subgraph "Core Logic"
             Ingest[Ingestion Pipeline]
             Search[Search Pipeline]
             Export[Diataxis Exporter]
         end
-        
+
         subgraph "AI & Analysis"
             Classifier[Diataxis Classifier]
             Reranker[LLM Reranker]
@@ -47,18 +47,18 @@ graph TD
 
     RepoService -- "RepoUpdateEvent" --> Consumer
     User -- "Search / Export" --> API
-    
+
     Consumer --> Ingest
     API --> Search
     API --> Export
-    
+
     Ingest --> Classifier
     Ingest --> Embedder
     Ingest --> DB
-    
+
     Search --> DB
     Search --> Reranker
-    
+
     Export --> DB
     Export --> Producer
     Producer -- "AnalysisComplete" --> RepoService

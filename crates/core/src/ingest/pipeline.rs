@@ -44,6 +44,7 @@ pub struct IngestionPipeline {
     classifier: DiataxisClassifier,
     chunking_manager: ChunkingStrategyManager,
     storage: PostgresStorage,
+    #[allow(dead_code)]
     provider: Arc<dyn Provider>,
 }
 
@@ -304,5 +305,12 @@ mod tests {
         assert_eq!(result.source_file, "test.md");
         assert_eq!(result.chunk_count, 3);
         assert_eq!(result.document_ids.len(), 3);
+    }
+
+    #[test]
+    fn test_mock_provider() {
+        let provider = MockEmbeddingProvider;
+        let metadata = provider.get_metadata();
+        assert_eq!(metadata.name, "mock");
     }
 }
