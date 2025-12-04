@@ -29,9 +29,11 @@
 pub mod embedding_cache;
 pub mod expansion;
 pub mod hybrid;
+pub mod pipeline;
 pub mod rerank;
 
 pub use embedding_cache::EmbeddingCache;
 pub use expansion::{ContextExpander, ExpandedDocument, ExpansionError};
 pub use hybrid::{HybridSearcher, SearchQuery, SearchResult};
+pub use pipeline::{PipelineError, SearchPipeline, SearchPipelineConfig};
 pub use rerank::{RerankError, RerankResult, Reranker};

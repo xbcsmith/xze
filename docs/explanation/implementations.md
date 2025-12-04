@@ -1954,3 +1954,45 @@ Unit tests passing:
 
 - Phase 2, Task 2.4: Search Pipeline Integration
 
+
+---
+
+## Phase 2: Search Pipeline Integration
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 2, Task 2.4
+
+### Overview
+
+Integrated the Hybrid Search, LLM Reranking, and Context Expansion components into a unified `SearchPipeline`. This pipeline provides a single entry point for performing advanced RAG retrieval operations with configurable behavior.
+
+### Components Delivered
+
+- `crates/core/src/search/pipeline.rs` - Implemented `SearchPipeline` and `SearchPipelineConfig`
+- `crates/core/src/search/mod.rs` - Exported pipeline components
+- `crates/core/src/storage/postgres.rs` - Added `Clone` derive to `PostgresStorage` for pipeline usage
+
+### Implementation Details
+
+**SearchPipeline Logic**:
+1.  **Hybrid Search**: Executes the initial retrieval using `HybridSearcher` (BM25 + Vector RRF).
+2.  **Reranking**: Optionally reranks the results using `Reranker` (LLM-based) if enabled in config.
+3.  **Context Expansion**: Optionally expands the context of the top results using `ContextExpander` if enabled in config.
+4.  **Configuration**: Controlled by `SearchPipelineConfig` which defines limits, toggles, and window sizes.
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.3 (Search Pipeline)
+- ✅ Implemented "Search Pipeline Integration" as specified in the plan.
+
+### Testing
+
+Unit tests passing:
+- `test_pipeline_config_default`
+- `test_pipeline_creation`
+
+### Next Steps
+
+- Phase 3: Diataxis Reorganization
+
