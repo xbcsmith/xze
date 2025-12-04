@@ -1673,3 +1673,87 @@ test result: ok. 3 passed; 0 failed
 - Phase 1, Task 1.3: Implement ChunkingStrategyManager
 - Phase 1, Task 1.4: Integration tests with testcontainers
 
+
+---
+
+## Phase 1:Diataxis Classification & Chunking
+
+**Date**: 2025-12-03
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 1, Tasks 1.2 & 1.3
+
+### Overview
+
+Implemented the Diataxis classification and intent-specific chunking strategies for the RAG ingestion pipeline. The classifier uses AI providers to categorize documentation, and the chunking strategies optimize chunk sizes based on document type.
+
+### Components Delivered
+
+- `crates/core/src/ingest/mod.rs` (8 lines) - Ingest module entry point
+- `crates/core/src/ingest/classifier.rs` (305 lines) - AI-powered Diataxis classifier
+- `crates/core/src/ingest/chunking.rs` (387 lines) - Intent-specific chunking strategies
+- `crates/core/src/lib.rs` - Added ingest module export
+
+### Implementation Details
+
+**DiataxisClassifier**:
+- Uses the existing AI provider abstraction (`Arc<dyn Provider>`)
+- Crafts detailed prompts explaining the Diataxis framework
+- Expects JSON responses: `{"type": "tutorial", "confidence": 0.95, "reasoning": "..."}`
+- Handles response parsing with tolerance for extra text
+- Truncates long content to first 2000 chars for classification efficiency
+
+**Chunking Strategies**:
+- **Tutorial**: Large chunks (1200-1800 chars) to preserve learning flow
+- **HowTo**: Balanced chunks (800-1200 chars) for task steps
+- **Reference**: Small, precise chunks (600-1000 chars)
+- **Explanation**: Larger context chunks (1000-1500 chars)
+- Configurable overlap to maintain context between chunks
+- Smart boundary detection (newlines, periods, spaces)
+
+**ChunkingStrategyManager**:
+- Centralized manager for all strategies
+- Selects appropriate strategy based on Diataxis type
+- Trait-based design for extensibility
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.2 (Ingestion Pipeline)
+- ✅ Followed `docs/explanation/rag_architecture_refactoring_plan.md` Phase 1, Tasks 1.2 & 1.3
+- ✅ Used existing AI provider abstraction
+- ✅ No interface dependencies from xze-core
+
+### Testing
+
+All tests passing:
+
+```text
+test result: ok. 8 passed; 0 failed
+- test_parse_classification_response
+- test_parse_classification_with_extra_text  
+- test_classify_with_mock
+- test_tutorial_strategy_config
+- test_chunking_strategy_manager
+- test_basic_chunking
+- test_small_content
+- test_manager_chunk
+```
+
+### Validation Results
+
+- ✅ `cargo fmt --all` passed
+- ✅ `cargo check --package xze-core --lib` passed
+- ✅ `cargo test --package xze-core --lib ingest` passed (8/8)
+- ✅ All public functions have `///` doc comments with examples
+- ✅ Proper error handling with `thiserror`
+
+### References
+
+- Architecture: `docs/reference/architecture.md` Section 2.2
+- Implementation Plan: `docs/explanation/rag_architecture_refactoring_plan.md` Phase 1
+
+### Next Steps
+
+- Phase 1, Task 1.4: Integration tests with testcontainers (Postgres)
+- Create end-to-end ingestion pipeline combining storage, classification, and chunking
+- Phase 2: Implement hybrid search and multi-stage retrieval
+
