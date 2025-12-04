@@ -28,6 +28,8 @@
 
 pub mod embedding_cache;
 pub mod hybrid;
+pub mod rerank;
 
 pub use embedding_cache::EmbeddingCache;
 pub use hybrid::{HybridSearcher, SearchQuery, SearchResult};
+pub use rerank::{RerankError, RerankResult, Reranker};

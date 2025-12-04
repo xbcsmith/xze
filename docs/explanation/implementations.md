@@ -1874,3 +1874,43 @@ Unit tests passing:
 - Phase 2, Task 2.2: LLM Reranking
 - Phase 2, Task 2.3: Context Expansion
 
+
+---
+
+## Phase 2: LLM Reranking
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 2, Task 2.2
+
+### Overview
+
+Implemented an LLM-based reranking mechanism to refine search results. This component takes the initial candidates from the hybrid search and uses an LLM to evaluate their semantic relevance to the query, reordering them to improve precision.
+
+### Components Delivered
+
+- `crates/core/src/search/rerank.rs` - Implemented `Reranker` struct and `RerankResult`
+- `crates/core/src/search/mod.rs` - Exported reranking components
+
+### Implementation Details
+
+**Reranker Logic**:
+- **Prompt Engineering**: Constructs a prompt containing the query and previews of the candidate documents.
+- **Structured Output**: Instructs the LLM to return a JSON array of objects containing the document index, a relevance score (0.0-1.0), and reasoning.
+- **Parsing & Sorting**: Parses the JSON response, maps scores back to documents, and sorts them in descending order of relevance.
+- **Error Handling**: Robustly handles JSON parsing errors and invalid indices.
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 2.3 (Search Pipeline)
+- ✅ Implemented "LLM Reranking" as specified in the plan.
+
+### Testing
+
+Unit tests passing:
+- `test_rerank` (verifies correct reordering based on mock LLM response)
+
+### Next Steps
+
+- Phase 2, Task 2.3: Context Expansion
+
