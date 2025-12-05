@@ -3,7 +3,7 @@
 
 use crate::ai::providers::{Message, Provider};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::fs;
