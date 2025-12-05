@@ -51,6 +51,7 @@ atty = "0.2"
 
 # Directories
 dirs = "5.0"
+futures.workspace = true
 
 [dev-dependencies]
 tokio-test = "0.4"

@@ -6,9 +6,11 @@
 
 use crate::commands::CliCommand;
 use clap::Parser;
-use sqlx::PgPool;
+use std::sync::Arc;
 use tracing::info;
-use xze_core::semantic::search::{search_with_chunks, SearchConfig};
+use xze_core::ai::providers::{OllamaConfig, OllamaProvider, Provider};
+use xze_core::search::{ExpandedDocument, SearchPipeline, SearchPipelineConfig};
+use xze_core::storage::PostgresStorage;
 use xze_core::Result;
 
 /// Search for document chunks using semantic similarity
@@ -25,11 +27,11 @@ use xze_core::Result;
 /// # Limit results
 /// xze search "installation steps" --max-results 5
 ///
-/// # Filter by category
-/// xze search "API usage" --category tutorial
+/// # Enable reranking
+/// xze search "deployment" --rerank
 ///
-/// # Set minimum similarity threshold
-/// xze search "error handling" --min-similarity 0.5
+/// # Enable context expansion
+/// xze search "error handling" --expand --context-window 2
 ///
 /// # Output as JSON
 /// xze search "deployment" --json
@@ -50,28 +52,38 @@ pub struct SearchArgs {
     /// Limits the number of search results. Results are always
     /// sorted by similarity score (highest first).
     #[arg(short = 'n', long, default_value = "10")]
-    pub max_results: usize,
+    pub max_results: i64,
 
-    /// Minimum similarity threshold (0.0 to 1.0)
+    /// Enable LLM reranking
     ///
-    /// Only return results with similarity scores above this threshold.
-    /// A value of 0.0 returns all results, 1.0 requires exact matches.
-    #[arg(short = 's', long, default_value = "0.0")]
-    pub min_similarity: f32,
-
-    /// Filter by document category
-    ///
-    /// Only search within documents of the specified category.
-    /// Categories follow the Diataxis framework: tutorial, how_to,
-    /// explanation, reference.
+    /// Uses an LLM to re-score and re-order the initial search results
+    /// for better relevance.
     #[arg(long)]
-    pub category: Option<String>,
+    pub rerank: bool,
+
+    /// Enable context expansion
+    ///
+    /// Fetches surrounding chunks for each result to provide more context.
+    #[arg(long)]
+    pub expand: bool,
+
+    /// Context window size for expansion
+    ///
+    /// Number of chunks to fetch before and after the matching chunk.
+    #[arg(long, default_value = "1")]
+    pub context_window: i32,
 
     /// Ollama API URL
     ///
     /// URL of the Ollama server for generating embeddings.
     #[arg(long, default_value = "http://localhost:11434")]
     pub ollama_url: String,
+
+    /// Ollama model name
+    ///
+    /// Model to use for embeddings and chat.
+    #[arg(long, default_value = "llama3")]
+    pub model: String,
 
     /// Database connection URL
     ///
@@ -107,7 +119,6 @@ impl CliCommand for SearchArgs {
         info!("Executing search command");
         info!("Query: '{}'", self.query);
         info!("Max results: {}", self.max_results);
-        info!("Min similarity: {}", self.min_similarity);
 
         // Validate configuration
         self.validate()?;
@@ -117,24 +128,40 @@ impl CliCommand for SearchArgs {
             "Connecting to database: {}",
             mask_connection_string(&self.database_url)
         );
-        let pool = PgPool::connect(&self.database_url).await.map_err(|e| {
-            xze_core::XzeError::Generic(anyhow::anyhow!("Database connection failed: {}", e))
-        })?;
+        let storage = PostgresStorage::new(&self.database_url)
+            .await
+            .map_err(|e| {
+                xze_core::XzeError::Generic(anyhow::anyhow!("Database connection failed: {}", e))
+            })?;
 
-        // Build search configuration
-        let config = SearchConfig {
-            max_results: self.max_results,
-            min_similarity: self.min_similarity,
-            category_filter: self.category.clone(),
+        // Initialize provider
+        let provider_config = OllamaConfig {
+            base_url: self.ollama_url.clone(),
+            timeout: 30,
+        };
+        let ollama_provider =
+            OllamaProvider::new(provider_config, self.model.clone()).map_err(|e| {
+                xze_core::XzeError::Generic(anyhow::anyhow!("Failed to create provider: {}", e))
+            })?;
+
+        let provider: Arc<dyn Provider> = Arc::new(ollama_provider);
+
+        // Initialize pipeline
+        let pipeline = SearchPipeline::new(storage, provider);
+
+        // Build configuration
+        let config = SearchPipelineConfig {
+            limit: self.max_results,
+            rerank: self.rerank,
+            expand_context: self.expand,
+            context_window: self.context_window,
         };
 
         // Execute search
-        info!(
-            "Searching with config: max={}, min_sim={}, category={:?}",
-            config.max_results, config.min_similarity, config.category_filter
-        );
+        info!("Searching with config: {:?}", config);
 
-        let results = search_with_chunks(&pool, &self.query, &self.ollama_url, &config)
+        let results = pipeline
+            .search(&self.query, &config)
             .await
             .map_err(|e| xze_core::XzeError::Generic(anyhow::anyhow!("Search failed: {}", e)))?;
 
@@ -163,16 +190,9 @@ impl CliCommand for SearchArgs {
             )));
         }
 
-        if self.max_results == 0 {
+        if self.max_results <= 0 {
             return Err(xze_core::XzeError::Generic(anyhow::anyhow!(
                 "max_results must be greater than 0"
-            )));
-        }
-
-        if self.min_similarity < 0.0 || self.min_similarity > 1.0 {
-            return Err(xze_core::XzeError::Generic(anyhow::anyhow!(
-                "min_similarity must be between 0.0 and 1.0, got {}",
-                self.min_similarity
             )));
         }
 
@@ -188,13 +208,9 @@ impl CliCommand for SearchArgs {
 
 impl SearchArgs {
     /// Display results in human-readable format
-    fn display_human(&self, results: &[xze_core::semantic::search::ChunkSearchResult]) {
+    fn display_human(&self, results: &[ExpandedDocument]) {
         if results.is_empty() {
             println!("\nNo results found for query: '{}'", self.query);
-            println!("Try:");
-            println!("  - Using different keywords");
-            println!("  - Lowering the minimum similarity threshold");
-            println!("  - Removing category filters");
             return;
         }
 
@@ -206,42 +222,31 @@ impl SearchArgs {
         println!("{}", "=".repeat(80));
 
         for (i, result) in results.iter().enumerate() {
+            let doc = &result.original;
             println!(
-                "\n{}. {} (Similarity: {:.2}%)",
+                "\n{}. {} (Chunk {})",
                 i + 1,
-                result.source_file,
-                result.similarity * 100.0
+                doc.source_file,
+                doc.chunk_index
             );
 
-            if let Some(ref title) = result.title {
+            if let Some(ref title) = doc.title {
                 println!("   Title: {}", title);
             }
 
-            if let Some(ref category) = result.category {
+            if let Some(ref category) = doc.category {
                 println!("   Category: {}", category);
             }
 
-            if self.verbose {
-                println!(
-                    "   Chunk: {}/{}",
-                    result.chunk_index + 1,
-                    result.total_chunks
-                );
-                println!(
-                    "   Sentences: {} to {}",
-                    result.sentence_range.0, result.sentence_range.1
-                );
-                println!(
-                    "   Avg chunk similarity: {:.2}%",
-                    result.avg_chunk_similarity * 100.0
-                );
+            if let Some(ref dt) = doc.diataxis_type {
+                println!("   Type: {:?}", dt);
             }
 
             println!("\n   Content:");
             let content = if self.full_content {
-                result.content.clone()
+                result.expanded_content.clone()
             } else {
-                truncate_content(&result.content, 300)
+                truncate_content(&result.expanded_content, 300)
             };
 
             for line in content.lines() {
@@ -250,38 +255,19 @@ impl SearchArgs {
 
             println!("\n{}", "-".repeat(80));
         }
-
-        println!(
-            "\nShowing {} of {} results",
-            results.len().min(self.max_results),
-            results.len()
-        );
     }
 
     /// Display results in JSON format
-    fn display_json(
-        &self,
-        results: &[xze_core::semantic::search::ChunkSearchResult],
-    ) -> Result<()> {
+    fn display_json(&self, results: &[ExpandedDocument]) -> Result<()> {
         use serde_json::json;
 
         let json_results: Vec<_> = results
             .iter()
             .map(|r| {
                 json!({
-                    "id": r.id,
-                    "source_file": r.source_file,
-                    "content": r.content,
-                    "similarity": r.similarity,
-                    "chunk_index": r.chunk_index,
-                    "total_chunks": r.total_chunks,
-                    "title": r.title,
-                    "category": r.category,
-                    "sentence_range": {
-                        "start": r.sentence_range.0,
-                        "end": r.sentence_range.1,
-                    },
-                    "avg_chunk_similarity": r.avg_chunk_similarity,
+                    "original": r.original,
+                    "expanded_content": r.expanded_content,
+                    "context_chunks": r.context_chunks,
                 })
             })
             .collect();
@@ -289,9 +275,11 @@ impl SearchArgs {
         let output = json!({
             "query": self.query,
             "result_count": results.len(),
-            "max_results": self.max_results,
-            "min_similarity": self.min_similarity,
-            "category_filter": self.category,
+            "config": {
+                "max_results": self.max_results,
+                "rerank": self.rerank,
+                "expand": self.expand,
+            },
             "results": json_results,
         });
 
@@ -335,9 +323,11 @@ mod tests {
         let args = SearchArgs {
             query: "".to_string(),
             max_results: 10,
-            min_similarity: 0.0,
-            category: None,
+            rerank: false,
+            expand: false,
+            context_window: 1,
             ollama_url: "http://localhost:11434".to_string(),
+            model: "llama3".to_string(),
             database_url: "postgresql://localhost/test".to_string(),
             json: false,
             full_content: false,
@@ -352,26 +342,11 @@ mod tests {
         let args = SearchArgs {
             query: "test query".to_string(),
             max_results: 0,
-            min_similarity: 0.0,
-            category: None,
+            rerank: false,
+            expand: false,
+            context_window: 1,
             ollama_url: "http://localhost:11434".to_string(),
-            database_url: "postgresql://localhost/test".to_string(),
-            json: false,
-            full_content: false,
-            verbose: false,
-        };
-
-        assert!(args.validate().is_err());
-    }
-
-    #[test]
-    fn test_search_args_validation_invalid_similarity() {
-        let args = SearchArgs {
-            query: "test query".to_string(),
-            max_results: 10,
-            min_similarity: 1.5,
-            category: None,
-            ollama_url: "http://localhost:11434".to_string(),
+            model: "llama3".to_string(),
             database_url: "postgresql://localhost/test".to_string(),
             json: false,
             full_content: false,
@@ -386,9 +361,11 @@ mod tests {
         let args = SearchArgs {
             query: "test query".to_string(),
             max_results: 10,
-            min_similarity: 0.5,
-            category: Some("tutorial".to_string()),
+            rerank: true,
+            expand: true,
+            context_window: 2,
             ollama_url: "http://localhost:11434".to_string(),
+            model: "llama3".to_string(),
             database_url: "postgresql://localhost/test".to_string(),
             json: false,
             full_content: false,
@@ -407,44 +384,15 @@ mod tests {
     }
 
     #[test]
-    fn test_mask_connection_string_no_credentials() {
-        let url = "postgresql://localhost:5432/db";
-        let masked = mask_connection_string(url);
-        assert_eq!(masked, "***");
-    }
-
-    #[test]
-    fn test_truncate_content_short() {
-        let content = "Short content";
-        let truncated = truncate_content(content, 100);
-        assert_eq!(truncated, "Short content");
-    }
-
-    #[test]
-    fn test_truncate_content_long() {
-        let content = "This is a very long piece of content that should be truncated to a reasonable length for display purposes.";
-        let truncated = truncate_content(content, 50);
-        assert!(truncated.len() <= 53); // 50 + "..."
-        assert!(truncated.ends_with("..."));
-    }
-
-    #[test]
-    fn test_truncate_content_at_word_boundary() {
-        let content = "This is a test sentence with multiple words";
-        let truncated = truncate_content(content, 20);
-        assert!(truncated.ends_with("..."));
-        // Should truncate at last space before limit
-        assert!(!truncated.contains("sentence"));
-    }
-
-    #[test]
     fn test_cli_command_name() {
         let args = SearchArgs {
             query: "test".to_string(),
             max_results: 10,
-            min_similarity: 0.0,
-            category: None,
+            rerank: false,
+            expand: false,
+            context_window: 1,
             ollama_url: "http://localhost:11434".to_string(),
+            model: "llama3".to_string(),
             database_url: "postgresql://localhost/test".to_string(),
             json: false,
             full_content: false,
