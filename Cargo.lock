@@ -5431,6 +5431,7 @@ dependencies = [
  "atty",
  "clap",
  "dirs",
+ "futures",
  "num_cpus",
  "reqwest",
  "serde",

@@ -2121,3 +2121,51 @@ All Phase 3 tasks have been completed:
 - Task 3.2: Reorganization Planner ✅
 - Task 3.3: Plan Executor ✅
 
+
+---
+
+## Phase 4: CLI Integration
+
+**Date**: 2025-12-05
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - CLI Integration
+
+### Overview
+
+Exposed the new RAG capabilities (Search Pipeline, Ingestion Pipeline, Diataxis Reorganization) through the CLI. This allows users to interact with the system directly from the terminal.
+
+### Components Delivered
+
+- `crates/cli/src/commands/search.rs` - Updated to use `SearchPipeline` with reranking and expansion support.
+- `crates/cli/src/commands/ingest.rs` - Created command for batch ingestion with concurrency control.
+- `crates/cli/src/commands/reorg.rs` - Created command for Diataxis reorganization (plan & execute).
+- `crates/cli/src/commands.rs` - Registered new commands.
+
+### Implementation Details
+
+**Search Command**:
+- Added `--rerank` flag to enable LLM reranking.
+- Added `--expand` and `--context-window` flags for context expansion.
+- Uses `SearchPipeline` to orchestrate the search process.
+
+**Ingest Command**:
+- Scans directory for markdown files.
+- Uses `IngestionPipeline` to process files concurrently.
+- Supports `--dry-run` and `--concurrency` options.
+
+**Reorg Command**:
+- Uses `RepositoryScanner` to find files.
+- Uses `ReorgPlanner` to generate a reorganization plan using LLM.
+- Uses `ReorgExecutor` to apply changes (with `--execute` flag).
+- Supports `--dry-run` for safe execution.
+
+### Architecture Compliance
+
+- ✅ Exposed core functionality via CLI as per standard practice.
+- ✅ Maintained separation of concerns (CLI handles args/IO, Core handles logic).
+
+### Next Steps
+
+- Integration testing of the full flow.
+- Documentation updates.
+
