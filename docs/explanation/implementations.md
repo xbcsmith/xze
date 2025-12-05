@@ -2036,3 +2036,43 @@ Unit tests passing:
 
 - Phase 3, Task 3.2: Reorganization Planner
 
+
+---
+
+## Phase 3: Reorganization Planner
+
+**Date**: 2025-12-04
+**Author**: AI Agent
+**Phase**: RAG Architecture Refactoring - Phase 3, Task 3.2
+
+### Overview
+
+Implemented the `ReorgPlanner` which uses an LLM to analyze documentation files and propose a reorganization plan based on the Diataxis framework. This component automates the classification of documentation into Tutorials, How-To Guides, Reference, and Explanation.
+
+### Components Delivered
+
+- `crates/core/src/reorg/planner.rs` - Implemented `ReorgPlanner`, `ReorgPlan`, and `FileMove`
+- `crates/core/src/reorg/mod.rs` - Exported planner components
+
+### Implementation Details
+
+**ReorgPlanner Logic**:
+1.  **File Analysis**: Reads the first 500 characters of each file to generate a content summary.
+2.  **Prompt Engineering**: Constructs a prompt explaining the Diataxis categories and providing the file summaries.
+3.  **LLM Classification**: Asks the LLM to classify each file and propose a new path (e.g., `docs/tutorials/setup.md`).
+4.  **Plan Generation**: Parses the LLM's JSON response into a structured `ReorgPlan` containing a list of `FileMove` operations.
+
+### Architecture Compliance
+
+- ✅ Followed `docs/reference/architecture.md` Section 3 (Diataxis Reorganization)
+- ✅ Implemented "Reorganization Planner" as specified in the plan.
+
+### Testing
+
+Unit tests passing:
+- `test_generate_plan` (verifies prompt generation and response parsing with mock provider)
+
+### Next Steps
+
+- Phase 3, Task 3.3: Plan Executor
+
